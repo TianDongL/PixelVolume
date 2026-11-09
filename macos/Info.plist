@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+    <key>CFBundleDisplayName</key><string>像素音量</string>
+    <key>CFBundleExecutable</key><string>PixelVolume</string>
+    <key>CFBundleIdentifier</key><string>com.tiandong.pixelvolume</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>Pixel Volume</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.2.4</string>
+    <key>CFBundleVersion</key><string>6</string>
+    <key>LSMinimumSystemVersion</key><string>10.15.7</string>
+    <key>LSMinimumSystemVersionByArchitecture</key>
+    <dict><key>x86_64</key><string>10.15.7</string><key>arm64</key><string>11.0</string></dict>
+    <key>LSUIElement</key><true/>
+    <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>

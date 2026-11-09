@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>PixelVolume</AssemblyName>
+    <AssemblyTitle>Pixel Volume</AssemblyTitle>
+    <Version>0.2.4</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <KnownILLinkPack Update="Microsoft.NET.ILLink.Tasks" ILLinkPackVersion="10.0.13" />
+    <FrameworkReference Update="Microsoft.NETCore.App;Microsoft.WindowsDesktop.App" RuntimeFrameworkVersion="10.0.13" />
+    <KnownFrameworkReference Update="Microsoft.AspNetCore.App" LatestRuntimeFrameworkVersion="10.0.13" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3719.77" />
+    <EmbeddedResource Include="SliderResident.html;DesktopBridge.html" />
+  </ItemGroup>
+</Project>

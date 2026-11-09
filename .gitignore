@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+**/out/
+artifacts/
+.cache/
+.DS_Store
+*.user
+*.log
+*.pfx
+*.p12
+*.pem
+*.key
+.env
+.env.*
+private/
+__pycache__/
+tests/fixtures/

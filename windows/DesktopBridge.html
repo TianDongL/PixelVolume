@@ -1,0 +1,62 @@
+<style>
+  :root { color-scheme: light dark; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+  body { display: grid; justify-items: center; align-content: start; user-select: none; }
+  [data-ld-part="slider-resident"] { width: 94%; }
+  #volume-status {
+    margin-top: -6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #251e35;
+    color: #fff4e8;
+    font: 600 12px/16px 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+</style>
+<output id="volume-status" for="system-volume" aria-hidden="true">…</output>
+<script>
+  const desktop = window.chrome?.webview;
+  const send = data => {
+    if (desktop) desktop.postMessage(data);
+    else window.webkit.messageHandlers.pixelVolume.postMessage(data);
+  };
+  const slider = document.querySelector('.range');
+  const status = document.querySelector('#volume-status');
+  slider.id = 'system-volume';
+  slider.setAttribute('aria-label', '系统音量');
+  let syncing = false;
+
+  window.setPixelVolume = data => {
+    syncing = true;
+    slider.disabled = data.available === false;
+    slider.value = slider.disabled || data.muted ? 0 : data.level;
+    slider.dispatchEvent(new Event('input'));
+    status.textContent = slider.disabled ? '此输出由设备控制' : data.muted ? '已静音' : `${data.level}%`;
+    syncing = false;
+  };
+  desktop?.addEventListener('message', ({ data }) => window.setPixelVolume(data));
+
+  slider.addEventListener('input', () => {
+    if (syncing) return;
+    const level = slider.valueAsNumber;
+    status.textContent = `${level}%`;
+    send({ type: 'volume', level });
+  });
+
+  let dragging = false;
+  slider.addEventListener('pointerdown', () => {
+    dragging = true;
+    send({ type: 'drag-start' });
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    send({ type: 'drag-end' });
+  };
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+  window.addEventListener('blur', endDrag);
+  slider.addEventListener('lostpointercapture', endDrag);
+  document.addEventListener('DOMContentLoaded', () => send({ type: 'ready' }), { once: true });
+</script>
