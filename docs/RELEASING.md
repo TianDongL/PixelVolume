@@ -35,6 +35,8 @@ python scripts/prepare_release.py --version 0.2.4 \
 
 回滚只需恢复旧的签名 stable.json 及下载页。客户端不会自动降级已安装版本。保留旧不可变安装包，避免旧链接失效。
 
+公开回读可执行 `python scripts/verify_release.py --download`。在切换指针之前，可用 `--manifest-file artifacts/site/updates/stable.json --download` 验证已上传的两个安装包。验证器检查清单签名，并完整流式下载两端文件核对大小和 SHA-256，不执行安装程序。
+
 ## 密钥维护
 
 更新签名私钥只放维护者的受限目录。服务器和 GitHub 只保存公钥与签名清单。新建私钥不会自动受旧客户端信任；轮换密钥需要先发布能够信任新公钥的客户端版本。失去当前私钥时，不能用新密钥直接签署旧客户端接受的更新。
