@@ -24,7 +24,10 @@ for platform, label, suffix in [('windows-x64', 'WINDOWS', 'Windows-x64-Setup.ex
     expected = f'https://norgateai.com/pixel-volume/releases/{version}/{item["sha256"]}/PixelVolume-{version}-{suffix}'
     if item['url'] != expected:
         raise ValueError('Unexpected download URL')
-    values.update({label+'_URL': expected, label+'_HASH': item['sha256'], label+'_SIZE': f'{item["size"]/1000000:.1f} MB' if item['size'] >= 1000000 else f'{round(item["size"]/1000)} KB'})
+    cdn_expected = f'https://dl.norgateai.com/download/releases/pixel-volume/{version}/{item["sha256"]}/PixelVolume-{version}-{suffix}'
+    if 'cdnUrl' in item and item['cdnUrl'] != cdn_expected:
+        raise ValueError('Unexpected CDN URL')
+    values.update({label+'_URL': item.get('cdnUrl', expected), label+'_HASH': item['sha256'], label+'_SIZE': f'{item["size"]/1000000:.1f} MB' if item['size'] >= 1000000 else f'{round(item["size"]/1000)} KB'})
 args.out.mkdir(parents=True, exist_ok=True)
 shutil.copytree(root/'website'/'assets', args.out/'assets', dirs_exist_ok=True)
 page = (root/'website'/'index.html').read_text(encoding='utf-8')

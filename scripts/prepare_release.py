@@ -65,7 +65,9 @@ def prepare(args):
         if dest.exists() and hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
             raise ValueError(f"Refusing to overwrite immutable artifact: {dest}")
         shutil.copyfile(path, dest)
-        platforms[platform] = {"url": "https://norgateai.com/pixel-volume/" + relative.as_posix(), "sha256": digest, "size": size}
+        cdn_url = f"https://dl.norgateai.com/download/releases/pixel-volume/{args.version}/{digest}/{filename}"
+        platforms[platform] = {"url": "https://norgateai.com/pixel-volume/" + relative.as_posix(),
+                               "cdnUrl": cdn_url, "sha256": digest, "size": size}
     manifest = {"schemaVersion": 1, "channel": "stable", "version": args.version,
                 "publishedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "notes": notes, "platforms": platforms}
@@ -93,7 +95,7 @@ def prepare(args):
     ET.SubElement(item, "{" + ns + "}shortVersionString").text = args.version
     ET.SubElement(item, "{" + ns + "}minimumSystemVersion").text = mac_info["LSMinimumSystemVersion"]
     mac = platforms["macos-universal"]
-    ET.SubElement(item, "enclosure", {"url": mac["url"], "length": str(mac["size"]),
+    ET.SubElement(item, "enclosure", {"url": mac["cdnUrl"], "length": str(mac["size"]),
         "type": "application/octet-stream", "{" + ns + "}edSignature": signature_text})
     ET.ElementTree(rss).write(args.out / "updates/appcast.xml", encoding="utf-8", xml_declaration=True)
     print(json.dumps({"version": args.version, "platforms": platforms}, indent=2))

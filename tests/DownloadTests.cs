@@ -44,6 +44,14 @@ internal static class DownloadTests
                 count++;
             }
             byte[] corrupt = (byte[])data.Clone(); corrupt[100] ^= 1;
+            using (var download = new UpdateDownload(new Reply(data)))
+            {
+                var cdnRelease = release with { Download = new Uri(release.Download.AbsoluteUri.Replace(
+                    "https://norgateai.com/pixel-volume/releases/", "https://dl.norgateai.com/download/releases/pixel-volume/")) };
+                string file = await download.DownloadAsync(cdnRelease, Path.Combine(root, "cdn"), null, CancellationToken.None);
+                using var verified = await UpdateDownload.OpenVerifiedAsync(file, cdnRelease, CancellationToken.None);
+                count++;
+            }
             foreach (var (name, response) in new[] {
                 ("hash", new Reply(corrupt)), ("short", new Reply(data[..100], unknownLength:true)),
                 ("long", new Reply(new byte[data.Length+1], unknownLength:true)),

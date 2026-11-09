@@ -16,9 +16,14 @@ string expectedVersion = File.ReadAllText(Path.Combine(root, "expected-version.t
 int cases = 0;
 foreach (string path in Directory.GetFiles(root, "*.json"))
 {
-    bool valid = Path.GetFileName(path) == "valid.json";
+    bool valid = Path.GetFileName(path) is "valid.json" or "valid-cdn.json";
     bool accepted;
-    try { var release = UpdateClient.Parse(File.ReadAllBytes(path), key); accepted = release.IsNewer && release.Version == expectedVersion; }
+    try
+    {
+        var release = UpdateClient.Parse(File.ReadAllBytes(path), key);
+        string host = Path.GetFileName(path) == "valid-cdn.json" ? "dl.norgateai.com" : "norgateai.com";
+        accepted = release.IsNewer && release.Version == expectedVersion && (!valid || release.Download.Host == host);
+    }
     catch { accepted = false; }
     if (accepted != valid) throw new Exception("Unexpected result: " + path);
     cases++;

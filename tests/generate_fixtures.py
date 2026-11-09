@@ -33,6 +33,21 @@ def write(name, obj, tamper=False, key_id="pixel-volume-p256-2026-01"):
     (root / (name + ".json")).write_text(json.dumps(envelope), encoding="utf-8")
 
 write("valid", body)
+cdn_body = copy.deepcopy(body)
+for platform in cdn_body["platforms"].values():
+    platform["cdnUrl"] = platform["url"].replace("https://norgateai.com/pixel-volume/releases/", "https://dl.norgateai.com/download/releases/pixel-volume/")
+write("valid-cdn", cdn_body)
+for name, transform in {
+    "cdn-http": lambda u: u.replace("https:", "http:"),
+    "cdn-host": lambda u: u.replace("dl.norgateai.com", "example.com"),
+    "cdn-query": lambda u: u + "?redirect=bad",
+    "cdn-prefix": lambda u: u.replace("/pixel-volume/", "/other-product/"),
+    "cdn-port": lambda u: u.replace("dl.norgateai.com", "dl.norgateai.com:444"),
+    "cdn-hash": lambda u: u.replace("a" * 64, "b" * 64),
+}.items():
+    changed = copy.deepcopy(cdn_body)
+    for platform in changed["platforms"].values(): platform["cdnUrl"] = transform(platform["cdnUrl"])
+    write(name, changed)
 write("tampered", body, tamper=True)
 write("wrong-key", body, key_id="unknown")
 for name, change in {
@@ -50,4 +65,4 @@ for name, change in {
     change(changed)
     write(name, changed)
 (root / "oversized.json").write_bytes(b" " * 65537)
-print("Generated 13 signed/invalid protocol cases with an ephemeral test key")
+print("Generated 20 signed/invalid protocol cases with an ephemeral test key")

@@ -50,10 +50,14 @@ def verify(args):
         expected = f"https://norgateai.com/pixel-volume/releases/{version}/{digest}/PixelVolume-{version}-{suffix}"
         if asset["url"] != expected:
             raise ValueError("Unexpected download URL")
+        cdn_expected = f"https://dl.norgateai.com/download/releases/pixel-volume/{version}/{digest}/PixelVolume-{version}-{suffix}"
+        if "cdnUrl" in asset and asset["cdnUrl"] != cdn_expected:
+            raise ValueError("Unexpected CDN URL")
+        download_url = asset.get("cdnUrl", expected)
         if args.download:
             h = hashlib.sha256()
             size = 0
-            with opener.open(expected, timeout=30) as response:
+            with opener.open(download_url, timeout=30) as response:
                 while chunk := response.read(1024 * 1024):
                     size += len(chunk)
                     if size > asset["size"]:
@@ -61,7 +65,7 @@ def verify(args):
                     h.update(chunk)
             if size != asset["size"] or h.hexdigest() != digest:
                 raise ValueError("Public artifact hash/size mismatch: " + platform)
-        checked.append({"platform": platform, "size": asset["size"], "sha256": digest, "downloadVerified": args.download})
+        checked.append({"platform": platform, "url": download_url, "size": asset["size"], "sha256": digest, "downloadVerified": args.download})
     print(json.dumps({"version": version, "signatureVerified": True, "platforms": checked}, indent=2))
 
 

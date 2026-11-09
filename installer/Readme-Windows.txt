@@ -1,7 +1,7 @@
-像素音量 / Pixel Volume 0.2.6 · Windows
+像素音量 / Pixel Volume 0.2.7 · Windows
 
 安装
-双击 PixelVolume-0.2.6-Windows-x64-Setup.exe，按安装向导完成安装。
+双击 PixelVolume-0.2.7-Windows-x64-Setup.exe，按安装向导完成安装。
 安装到当前用户，不需要管理员权限。安装完成后可直接打开，也可从开始菜单搜索「像素音量」。
 如果系统没有界面所需组件，安装程序会从 Microsoft 联网补齐。
 

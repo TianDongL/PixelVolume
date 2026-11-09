@@ -13,11 +13,13 @@
         if (!file || !/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > 1073741824) return;
         const expected = `https://norgateai.com/pixel-volume/releases/${release.version}/${file.sha256}/PixelVolume-${release.version}-${suffix}`;
         if (file.url !== expected) return;
+        const cdnExpected = `https://dl.norgateai.com/download/releases/pixel-volume/${release.version}/${file.sha256}/PixelVolume-${release.version}-${suffix}`;
+        if (file.cdnUrl !== undefined && file.cdnUrl !== cdnExpected) return;
       }
       for (const node of document.querySelectorAll('[data-version]')) node.textContent = release.version;
       for (const platform of Object.keys(suffixes)) {
         const file = release.platforms[platform];
-        document.querySelectorAll(`[data-download="${platform}"]`).forEach(node => { node.href = file.url; });
+        document.querySelectorAll(`[data-download="${platform}"]`).forEach(node => { node.href = file.cdnUrl || file.url; });
         document.querySelectorAll(`[data-size="${platform}"]`).forEach(node => { node.textContent = sizeText(file.size); });
         document.querySelectorAll(`[data-hash="${platform}"]`).forEach(node => { node.textContent = file.sha256; });
       }

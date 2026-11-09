@@ -13,7 +13,7 @@ struct UpdateRelease {
 enum UpdateFailure: Error { case invalidManifest }
 
 final class UpdateClient: NSObject, URLSessionDataDelegate {
-    static let currentVersion = "0.2.6"
+    static let currentVersion = "0.2.7"
     static let endpoint = URL(string: "https://norgateai.com/pixel-volume/updates/stable.json")!
     static let keyId = "pixel-volume-p256-2026-01"
     static let publicKey = "BCStAYN3T5jfuDxNsYIJL9U4RTE5XOG8tpJ1yevbDJL1BkJQi+wUqCoyN/t1yaCNshSqygcUjl7/WNBZvsU9pn8="
@@ -54,7 +54,16 @@ final class UpdateClient: NSObject, URLSessionDataDelegate {
               url.path == "/pixel-volume/releases/\(version)/\(hash)/PixelVolume-\(version)-macOS-Universal.dmg"
         else { throw UpdateFailure.invalidManifest }
         _ = try compareVersions(version, currentVersion)
-        return UpdateRelease(version: version, notes: notes, download: url, sha256: hash, size: size.int64Value)
+        var download = url
+        if let value = platform["cdnUrl"] {
+            guard let text = value as? String, let cdn = URL(string: text),
+                  cdn.scheme == "https", cdn.host == "dl.norgateai.com", cdn.port == nil || cdn.port == 443,
+                  cdn.user == nil, cdn.password == nil, cdn.query == nil, cdn.fragment == nil,
+                  cdn.path == "/download/releases/pixel-volume/\(version)/\(hash)/PixelVolume-\(version)-macOS-Universal.dmg"
+            else { throw UpdateFailure.invalidManifest }
+            download = cdn
+        }
+        return UpdateRelease(version: version, notes: notes, download: download, sha256: hash, size: size.int64Value)
     }
 
     private var received = Data()

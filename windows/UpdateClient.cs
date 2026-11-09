@@ -15,7 +15,7 @@ internal sealed record UpdateRelease(string Version, string Notes, Uri Download,
 
 internal static class UpdateClient
 {
-    internal const string CurrentVersion = "0.2.6";
+    internal const string CurrentVersion = "0.2.7";
     internal const string Endpoint = "https://norgateai.com/pixel-volume/updates/stable.json";
     internal const string KeyId = "pixel-volume-p256-2026-01";
     internal const string PublicKey = "BCStAYN3T5jfuDxNsYIJL9U4RTE5XOG8tpJ1yevbDJL1BkJQi+wUqCoyN/t1yaCNshSqygcUjl7/WNBZvsU9pn8=";
@@ -63,7 +63,17 @@ internal static class UpdateClient
         string notes = data.GetProperty("notes").GetString() ?? "";
         if (notes.Length > 4000) throw new InvalidDataException("更新说明过长。");
         var release = new UpdateRelease(version, notes, url, hash, size);
+        if (url.Host != "norgateai.com") throw new InvalidDataException("更新源地址无效。");
         ValidateArtifact(release);
+        // The origin URL stays in schema 1 for older clients. CDN URLs are also signed
+        // and must name the same immutable artifact under our dedicated prefix.
+        if (platform.TryGetProperty("cdnUrl", out var cdn))
+        {
+            var cdnUrl = new Uri(cdn.GetString()!, UriKind.Absolute);
+            if (cdnUrl.Host != "dl.norgateai.com") throw new InvalidDataException("更新加速地址无效。");
+            release = release with { Download = cdnUrl };
+            ValidateArtifact(release);
+        }
         return release;
     }
 
@@ -71,9 +81,10 @@ internal static class UpdateClient
     {
         var (version, _, url, hash, size) = release;
         _ = CompareVersions(version, CurrentVersion);
-        string expected = $"/pixel-volume/releases/{version}/{hash}/PixelVolume-{version}-Windows-x64-Setup.exe";
+        string prefix = url.Host == "dl.norgateai.com" ? "/download/releases/pixel-volume/" : "/pixel-volume/releases/";
+        string expected = $"{prefix}{version}/{hash}/PixelVolume-{version}-Windows-x64-Setup.exe";
         if (!Regex.IsMatch(hash, "\\A[a-f0-9]{64}\\z") || size is <= 0 or > 1073741824 ||
-            url.Scheme != "https" || url.Host != "norgateai.com" || !url.IsDefaultPort ||
+            url.Scheme != "https" || (url.Host != "norgateai.com" && url.Host != "dl.norgateai.com") || !url.IsDefaultPort ||
             url.UserInfo != "" || url.Query != "" || url.Fragment != "" || url.AbsolutePath != expected)
             throw new InvalidDataException("更新下载地址无效。");
     }

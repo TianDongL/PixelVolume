@@ -5,9 +5,10 @@ let key = try String(contentsOf: folder.appendingPathComponent("public.txt"), en
 let expectedVersion = try String(contentsOf: folder.appendingPathComponent("expected-version.txt"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
 var count = 0
 for file in try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) where file.pathExtension == "json" {
-    let expected = file.lastPathComponent == "valid.json"
+    let expected = ["valid.json", "valid-cdn.json"].contains(file.lastPathComponent)
     let result = try? UpdateClient.parse(Data(contentsOf: file), publicKey: key)
-    let accepted = result?.version == expectedVersion && result?.isNewer == true
+    let host = file.lastPathComponent == "valid-cdn.json" ? "dl.norgateai.com" : "norgateai.com"
+    let accepted = result?.version == expectedVersion && result?.isNewer == true && (!expected || result?.download.host == host)
     precondition(expected == accepted, "Unexpected result: \(file.lastPathComponent)")
     count += 1
 }

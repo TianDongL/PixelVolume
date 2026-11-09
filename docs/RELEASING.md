@@ -70,3 +70,10 @@ Windows 先验证 P-256 清单，下载过程限制大小、超时，不跟随�
 - `tests/test-installer.ps1 -NsisCompiler <path>`：在独立目录里用无执行功能的假文件验证首次写入、替换、锁定失败、保留恢复副本；不接触真实安装、启动项或产品注册表。
 - Mac：协议测试分别编译为 arm64 与 x86_64，复核主程序、登录助手、Sparkle 框架和帮助程序的架构与最低系统版本，验证 Developer ID、公证、DMG 和 Ed25519 签名。
 - 不通过点击、键盘或安装正式应用进行验收。完整用户安装及重启流程仍需人工试用；CI/控制台通过不代表真实 Intel 旧系统完成验收。
+
+## OSS / CDN 分发（0.2.7 起）
+
+- 安装包同时保留源站不可变 URL，并上传到现有 OSS 桶的 `download/releases/pixel-volume/<version>/<sha256>/<filename>`，使用既有 `dl.norgateai.com` CDN 和缓存规则。只操作 Pixel Volume 前缀，不改变其他产品、桶 ACL、CDN 域名或购买资源。
+- `prepare_release.py` 生成兼容旧版的 `url` 与新版使用的 `cdnUrl`。网页、新版 Windows/Mac 协议模块优先使用 `cdnUrl`；Sparkle appcast 的 enclosure 使用 CDN URL。
+- 上传前后核对大小和 SHA-256，禁止覆盖不可变对象。需要从公开 CDN 地址完整下载并核对哈希，确认 HTTPS、Range 响应和缓存后，再发布指针。源站链接保留，以免旧版清单校验或禁用重定向的下载器失败。
+- Windows 0.2.6 及以前并不认识 `cdnUrl`，升到 0.2.7 的这一跳仍会使用原链路；用户可从已走 CDN 的网页手动安装 0.2.7。之后应用内更新使用 CDN。不能用 302 跳转代替这次兼容升级。
