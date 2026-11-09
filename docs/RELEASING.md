@@ -33,6 +33,8 @@ python scripts/prepare_release.py --version 0.2.4 \
 5. Windows：`PixelVolume.exe --check-update-to result.json`。Mac：直接执行 App 内的 `Contents/MacOS/PixelVolume --check-update`。这两个入口均不显示应用窗口，也不接管音量或申请权限。
 6. 记录代码提交、安装包哈希、Mac 公证结果和公开回读结果，再提供给用户。
 
+下载页源码在 `website/`，执行 `python scripts/build_website.py --release artifacts/site/release.json --out artifacts/site` 生成带本次版本回退链接的页面及预览资源。页面会从同目录 `release.json` 刷新两端版本与链接，不需要修改 HTML 中的下载地址。单独改版网页时只部署 `index.html` 与 `assets/`，不覆盖 `release.json`、`updates/` 或 `releases/`。
+
 需要完全独立于桌面应用的线上验证时，可运行 `dotnet run --project tests/UpdateTests.csproj -- --live`；Mac 可将 `macos/UpdateClient.swift` 与 `tests/live/main.swift` 编译为控制台程序后运行。这些程序直接复用产品的更新模块，不链接桌面 UI，不申请辅助功能权限，也不改动音量或登录启动项。
 
 回滚只需恢复旧的签名 stable.json 及下载页。客户端不会自动降级已安装版本。保留旧不可变安装包，避免旧链接失效。

@@ -26,6 +26,9 @@ Windows 当前发布物尚未做 Authenticode 签名，可能出现未知发布�
 | `scripts/` | 构建、打包和生成签名更新清单 |
 | `tests/` | 不启动桌面界面的更新协议测试 |
 | `update-channel.json` | 公开更新地址、密钥标识及验签公钥 |
+| `website/` | Norgate 下载页、双端安装说明及浏览器效果预览 |
+
+下载页构建：`python scripts/build_website.py --release artifacts/site/release.json --out artifacts/site`。它复用应用的像素界面生成网页预览，页面不接管系统音量；版本、下载地址、大小与校验值从发布元数据生成，并可在页面打开时刷新。部署网页时只替换 `index.html` 和 `assets/`，保留安装包与签名更新通道。
 
 Windows 需要 .NET 10 SDK、NSIS 3 和 Microsoft 官方 WebView2 Evergreen Bootstrapper。执行：
 
