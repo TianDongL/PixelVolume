@@ -202,9 +202,10 @@ const RAMPS = [
   ['accent', -72, 0.6], // 淡い光 1
   ['accent', 148, 0.56], // 淡い光 2
   ['accent', 0, 0.62], // 淡い光 3
+  ['muted', 85, 0.45], // Muted rose skin in moonlight.
   ['surface', 0, 0.46], // 肌
 ];
-const RK = 0, RU = 1, RW = 2, RS = 3, RA = 4, RG = 5, RC = 6, RP = 7, RT = 8, LP = 9, LT = 10, LA = 11, RN = 12;
+const RK = 0, RU = 1, RW = 2, RS = 3, RA = 4, RG = 5, RC = 6, RP = 7, RT = 8, LP = 9, LT = 10, LA = 11, R_SLEEP = 12, RN = 13;
 
 // ---- 材質：[名前, 色相, 明るさ, 自ら光るか, 光の場へ出す強さ]
 const MATS = [
@@ -336,8 +337,11 @@ const MATS = [
   ['PANTS', RU, 3],
   ['PANTS_D', RU, 2],
   ['SHOE', RC, 7],
-  ['MOON_SKIN', RU, 5, 1, 0],
-  ['MOON_SKIN_D', RU, 3, 1, 0],
+  ['SLEEP_PILLOW', RU, 6],
+  ['SLEEP_PILLOW_D', RU, 5],
+  ['SLEEP_HAIR_RIM', RK, 2, 1, 0],
+  ['MOON_SKIN', R_SLEEP, 7],
+  ['MOON_SKIN_D', R_SLEEP, 5],
   ['MOON_HAIR', RK, 1, 1, 0],
   ['MOON_EYE', RK, 0, 1, 0],
   ['OUTLINE', RK, 0, 1, 0],
@@ -407,16 +411,16 @@ const cellsOf = (rows, skip) => {
 const HEAD_CELLS = cellsOf(HEAD_ROWS, '.');
 const SLEEP_FACE = cellsOf(
   [
-    '...HHHHHH...',
-    '..HHHHHHHH..',
-    '.HHHHHHHHHH.',
-    '.HHHSHHSHHH.',
-    '.HSSSSSSSSH.',
-    '.HEEESSEEEH.',
-    '.HSSSSSSSSH.',
-    '.HCSSSSSSCH.',
-    '..SSSSMSSS..',
-    '...SSSSSS...',
+    '..HHHHHH..',
+    '.HhhSESDS.',
+    'HhHHSESSSS',
+    'HhHSSESSSS',
+    'HhHHSSSSDS',
+    'HhHHSSSSSS',
+    'HHHSSESSSS',
+    'HHHHSESSSS',
+    '.HHHSESDS.',
+    '..HHHHHH..',
   ],
   '.',
 );
@@ -864,6 +868,9 @@ function mount(root) {
     for (let lv = 0; lv < 8; lv++) {
       let id;
       if (self) id = pal(r, t);
+      // Sleeping skin stays legible while responding to the room's illumination.
+      else if (m === M.MOON_SKIN || m === M.MOON_SKIN_D) id = pal(r, t - 3 + (lv - 2) * 0.75);
+      else if (m === M.SLEEP_PILLOW || m === M.SLEEP_PILLOW_D) id = pal(r, t - 3 + (lv - 2) * 0.65);
       else if (lv === 0) id = pal(RK, t * 0.2);
       else if (lv === 1) id = pal(RK, 0.4 + t * 0.36);
       else if (lv === 2) id = pal(RU, t * 0.42 - 0.2);
@@ -2214,14 +2221,25 @@ function mount(root) {
     const breath = calm ? 0.5 : 0.5 + 0.5 * Math.sin(anim * 1.55);
     const rise = Math.round(breath * 1.4);
     // 頭：月の光だけが顔を照らす
+    // Reclining person, drawn back to front: pillow, neck/shoulder, head, blanket, arm.
+    rect(101, 39, 13, 10, M.SLEEP_PILLOW);
+    rect(102, 38, 10, 1, M.SLEEP_PILLOW);
+    rect(102, 49, 11, 1, M.SLEEP_PILLOW_D);
+    put(101, 39, M.SLEEP_PILLOW_D);
+    put(101, 48, M.SLEEP_PILLOW_D);
+    rect(112, 41, 3, 5, M.MOON_SKIN_D);
+    rect(113, 42, 2, 2, M.MOON_SKIN);
+    rect(115, 41, 6, 6, M.SHIRT);
+    rect(116, 40, 4, 1, M.SHIRT);
+    rect(115, 46, 6, 2, M.SHIRT_D);
     const fx = 103;
-    const fy = 36;
+    const fy = 38;
     for (const [i, j, ch] of SLEEP_FACE) {
       let m = M.MOON_SKIN;
       if (ch === 'H') m = M.MOON_HAIR;
+      else if (ch === 'h') m = M.SLEEP_HAIR_RIM;
       else if (ch === 'E') m = M.MOON_EYE;
-      else if (ch === 'C') m = M.MOON_SKIN_D;
-      else if (ch === 'M') m = M.MOON_SKIN_D;
+      else if (ch === 'D') m = M.MOON_SKIN_D;
       put(fx + i, fy + j, m);
     }
     // 毛布：あごまで掛かり、胸のあたりが息で上下する
@@ -2239,8 +2257,14 @@ function mount(root) {
     }
     // 垂れた毛布のふち
     for (let wx = X0 + 2; wx < X1; wx++) put(wx, 50 + ((wx * 3) % 5 === 0 ? 1 : 0), M.BLANKET_D);
+    rect(116, 46, 3, 2, M.SHIRT);
+    rect(116, 48, 3, 2, M.MOON_SKIN_D);
+    rect(110, 49, 8, 2, M.MOON_SKIN_D);
+    rect(110, 49, 7, 1, M.MOON_SKIN);
+    rect(108, 47, 3, 3, M.MOON_SKIN);
+    put(108, 49, M.MOON_SKIN_D);
     // 鼻ちょうちん：息に合わせてふくらみ、吐ききると消える
-    const size = calm ? 1.8 : breath > 0.12 ? 0.8 + breath * 1.8 : 0;
+    const size = 0;
     if (size > 0) {
       const bx = fx + 11 + Math.round(size);
       const by = fy + 3 - Math.round(size);

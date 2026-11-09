@@ -12,12 +12,13 @@ if (args.Length == 1 && args[0] == "--live")
 }
 string root = args[0];
 string key = File.ReadAllText(Path.Combine(root, "public.txt")).Trim();
+string expectedVersion = File.ReadAllText(Path.Combine(root, "expected-version.txt")).Trim();
 int cases = 0;
 foreach (string path in Directory.GetFiles(root, "*.json"))
 {
     bool valid = Path.GetFileName(path) == "valid.json";
     bool accepted;
-    try { var release = UpdateClient.Parse(File.ReadAllBytes(path), key); accepted = release.IsNewer && release.Version == "0.2.5"; }
+    try { var release = UpdateClient.Parse(File.ReadAllBytes(path), key); accepted = release.IsNewer && release.Version == expectedVersion; }
     catch { accepted = false; }
     if (accepted != valid) throw new Exception("Unexpected result: " + path);
     cases++;

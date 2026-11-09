@@ -10,12 +10,12 @@ InstallDir "$LOCALAPPDATA\PixelVolume"
 InstallDirRegKey HKCU "Software\PixelVolume" "InstallDir"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-BrandingText "Pixel Volume 0.2.4"
-VIProductVersion "0.2.4.0"
+BrandingText "Pixel Volume 0.2.5"
+VIProductVersion "0.2.5.0"
 VIAddVersionKey /LANG=2052 "ProductName" "像素音量"
 VIAddVersionKey /LANG=2052 "FileDescription" "像素音量安装程序"
-VIAddVersionKey /LANG=2052 "FileVersion" "0.2.4"
-VIAddVersionKey /LANG=2052 "ProductVersion" "0.2.4"
+VIAddVersionKey /LANG=2052 "FileVersion" "0.2.5"
+VIAddVersionKey /LANG=2052 "ProductVersion" "0.2.5"
 VIAddVersionKey /LANG=2052 "LegalCopyright" "Pixel Volume; UI by @Lattice_Node (MIT)"
 
 !define MUI_ABORTWARNING
@@ -90,7 +90,7 @@ Section "像素音量（必需）" MainSection
     CreateShortcut "$SMPROGRAMS\像素音量.lnk" "$INSTDIR\PixelVolume.exe"
     WriteRegStr HKCU "Software\PixelVolume" "InstallDir" "$INSTDIR"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayName" "像素音量"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayVersion" "0.2.4"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayVersion" "0.2.5"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "Publisher" "Pixel Volume"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "InstallLocation" "$INSTDIR"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayIcon" "$INSTDIR\PixelVolume.exe"

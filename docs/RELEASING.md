@@ -17,9 +17,9 @@ payload 的 schemaVersion 为 1，channel 为 stable，version 为三个数字�
 5. 使用离线保存的更新签名私钥生成两端清单。私钥必须在仓库之外；需要维护者另行做安全备份。
 
 ```bash
-python scripts/prepare_release.py --version 0.2.4 \
-  --windows artifacts/PixelVolume-0.2.4-Windows-x64-Setup.exe \
-  --macos artifacts/PixelVolume-0.2.4-macOS-Universal.dmg \
+python scripts/prepare_release.py --version 0.2.5 \
+  --windows artifacts/PixelVolume-0.2.5-Windows-x64-Setup.exe \
+  --macos artifacts/PixelVolume-0.2.5-macOS-Universal.dmg \
   --notes release-notes.txt --key /secure/path/update-signing-key.pem \
   --out artifacts/site
 ```

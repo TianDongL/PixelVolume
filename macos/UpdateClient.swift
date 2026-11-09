@@ -13,7 +13,7 @@ struct UpdateRelease {
 enum UpdateFailure: Error { case invalidManifest }
 
 final class UpdateClient: NSObject, URLSessionDataDelegate {
-    static let currentVersion = "0.2.4"
+    static let currentVersion = "0.2.5"
     static let endpoint = URL(string: "https://norgateai.com/pixel-volume/updates/stable.json")!
     static let keyId = "pixel-volume-p256-2026-01"
     static let publicKey = "BCStAYN3T5jfuDxNsYIJL9U4RTE5XOG8tpJ1yevbDJL1BkJQi+wUqCoyN/t1yaCNshSqygcUjl7/WNBZvsU9pn8="

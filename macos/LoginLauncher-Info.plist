@@ -6,8 +6,8 @@
     <key>CFBundleIdentifier</key><string>com.tiandong.pixelvolume.launcher</string>
     <key>CFBundleName</key><string>Pixel Volume Login</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.2.4</string>
-    <key>CFBundleVersion</key><string>6</string>
+    <key>CFBundleShortVersionString</key><string>0.2.5</string>
+    <key>CFBundleVersion</key><string>7</string>
     <key>LSMinimumSystemVersion</key><string>10.15.7</string>
     <key>LSMinimumSystemVersionByArchitecture</key>
     <dict><key>x86_64</key><string>10.15.7</string><key>arm64</key><string>11.0</string></dict>
