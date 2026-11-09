@@ -3,6 +3,10 @@ Unicode true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "WinVer.nsh"
+!include "FileFunc.nsh"
+!include "ReplaceApplication.nsh"
+Var InAppUpdate
+Var InstallerMutex
 
 Name "像素音量"
 OutFile "${OUTPUT_FILE}"
@@ -10,12 +14,12 @@ InstallDir "$LOCALAPPDATA\PixelVolume"
 InstallDirRegKey HKCU "Software\PixelVolume" "InstallDir"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-BrandingText "Pixel Volume 0.2.5"
-VIProductVersion "0.2.5.0"
+BrandingText "Pixel Volume 0.2.6"
+VIProductVersion "0.2.6.0"
 VIAddVersionKey /LANG=2052 "ProductName" "像素音量"
 VIAddVersionKey /LANG=2052 "FileDescription" "像素音量安装程序"
-VIAddVersionKey /LANG=2052 "FileVersion" "0.2.5"
-VIAddVersionKey /LANG=2052 "ProductVersion" "0.2.5"
+VIAddVersionKey /LANG=2052 "FileVersion" "0.2.6"
+VIAddVersionKey /LANG=2052 "ProductVersion" "0.2.6"
 VIAddVersionKey /LANG=2052 "LegalCopyright" "Pixel Volume; UI by @Lattice_Node (MIT)"
 
 !define MUI_ABORTWARNING
@@ -35,6 +39,21 @@ VIAddVersionKey /LANG=2052 "LegalCopyright" "Pixel Volume; UI by @Lattice_Node (
 
 Function .onInit
     SetShellVarContext current
+    System::Call 'kernel32::CreateMutexW(p 0, i 0, w "Local\PixelVolume.Installer") p.r0 ?e'
+    Pop $1
+    StrCpy $InstallerMutex $0
+    ${If} $1 == 183
+        SetErrorLevel 6
+        Quit
+    ${EndIf}
+    StrCpy $InAppUpdate 0
+    ${GetParameters} $0
+    ClearErrors
+    ${GetOptions} $0 "/INAPPUPDATE" $1
+    ${IfNot} ${Errors}
+        StrCpy $InAppUpdate 1
+        SetSilent silent
+    ${EndIf}
     ${IfNot} ${RunningX64}
         MessageBox MB_ICONSTOP "此安装包需要 64 位 Windows。"
         Abort
@@ -65,23 +84,35 @@ Section "像素音量（必需）" MainSection
         ExecWait '"$PLUGINSDIR\MicrosoftEdgeWebview2Setup.exe" /silent /install' $0
         ExecWait '"$PLUGINSDIR\PixelVolume.exe" --check-webview' $0
         ${If} $0 != 0
-            MessageBox MB_ICONSTOP "界面组件尚未安装成功。请连接网络后重新运行安装包。"
+            MessageBox MB_ICONSTOP "界面组件尚未安装成功。请连接网络后重新运行安装包。" /SD IDOK
             SetErrorLevel 2
             Abort
         ${EndIf}
     ${EndIf}
-    SetOutPath "$INSTDIR"
-    IfFileExists "$INSTDIR\PixelVolume.exe" 0 writeApplication
+    IfFileExists "$INSTDIR\PixelVolume.exe" 0 waitForApplication
     ExecWait '"$INSTDIR\PixelVolume.exe" --quit' $0
-    Sleep 1000
-    writeApplication:
-    ClearErrors
-    CopyFiles /SILENT "$PLUGINSDIR\PixelVolume.exe" "$INSTDIR\PixelVolume.exe"
-    ${If} ${Errors}
-        MessageBox MB_ICONSTOP "无法写入应用文件。请退出正在运行的像素音量，再重新运行安装包。"
+    waitForApplication:
+    System::Call 'kernel32::OpenMutexW(i 0x100001, i 0, w "Local\PixelVolume.Desktop") p.r1'
+    ${If} $1 != 0
+        System::Call 'kernel32::WaitForSingleObject(p r1, i 20000) i.r2'
+        ${If} $2 == 0
+        ${OrIf} $2 == 128
+            System::Call 'kernel32::ReleaseMutex(p r1)'
+        ${EndIf}
+        System::Call 'kernel32::CloseHandle(p r1)'
+        ${If} $2 != 0
+        ${AndIf} $2 != 128
+            SetErrorLevel 3
+            Abort
+        ${EndIf}
+    ${EndIf}
+    Call ReplaceApplication
+    ${If} $ReplaceResult != 0
+        MessageBox MB_ICONSTOP "无法替换应用文件，已保留旧版。请退出像素音量，再重新运行安装包。" /SD IDOK
         SetErrorLevel 3
         Abort
     ${EndIf}
+    SetOutPath "$INSTDIR"
     File "${PUBLISH_DIR}\Readme.txt"
     SetOutPath "$INSTDIR\Licenses"
     File "${PUBLISH_DIR}\Licenses\*.txt"
@@ -90,7 +121,7 @@ Section "像素音量（必需）" MainSection
     CreateShortcut "$SMPROGRAMS\像素音量.lnk" "$INSTDIR\PixelVolume.exe"
     WriteRegStr HKCU "Software\PixelVolume" "InstallDir" "$INSTDIR"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayName" "像素音量"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayVersion" "0.2.5"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayVersion" "0.2.6"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "Publisher" "Pixel Volume"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "InstallLocation" "$INSTDIR"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "DisplayIcon" "$INSTDIR\PixelVolume.exe"
@@ -99,6 +130,21 @@ Section "像素音量（必需）" MainSection
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "NoModify" 1
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\PixelVolume" "NoRepair" 1
 SectionEnd
+
+Function .onInstSuccess
+    ${If} $InAppUpdate == 1
+        Exec '"$INSTDIR\PixelVolume.exe" --updated'
+    ${EndIf}
+FunctionEnd
+
+Function .onInstFailed
+    ${If} $InAppUpdate == 1
+        ; The replacement routine leaves the previous executable in place on failure.
+        IfFileExists "$INSTDIR\PixelVolume.exe" 0 noRecoveryLaunch
+        Exec '"$INSTDIR\PixelVolume.exe" --update-failed'
+        noRecoveryLaunch:
+    ${EndIf}
+FunctionEnd
 
 Section /o "创建桌面快捷方式" DesktopSection
     CreateShortcut "$DESKTOP\像素音量.lnk" "$INSTDIR\PixelVolume.exe"

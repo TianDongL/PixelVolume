@@ -6,7 +6,7 @@
 - macOS：AppKit、WKWebView、Core Audio，通用二进制同时包含 Intel x86_64 和 Apple arm64；最低构建目标分别为 macOS 10.15.7 和 11.0。
 - 首次打开提供使用引导；登录启动默认关闭，由用户选择。
 - Mac 首次使用引导用户允许辅助功能权限，以接管键盘音量键。
-- 启动时及运行中每六小时检查更新；设置窗口和系统托盘／菜单栏也提供「检查更新」。用户确认后由浏览器下载对应安装包。
+- 启动时及运行中每六小时检查更新；设置窗口和系统托盘／菜单栏也提供「检查更新」。从 0.2.6 开始，在应用内下载、校验并安装，确认后重启，不需要打开浏览器。
 
 ## 安装
 
@@ -50,7 +50,11 @@ bash macos/build.sh
 
 `https://norgateai.com/pixel-volume/updates/stable.json`
 
-客户端使用内置 P-256 公钥验证清单签名，验证版本号、下载域名、不可变路径和元数据格式。清单同时包含 Windows 与 Mac 的版本、安装包地址、大小、SHA-256 和更新说明。通过浏览器下载后，由用户执行安装；校验值也提供给发布验证工具和用户核对。
+该签名清单继续服务 Windows 与旧版 Mac。Windows 使用内置 P-256 公钥验证清单，并在应用内流式下载，核对大小与 SHA-256；用户选择“重启并更新”后，安装器等待旧进程退出、保留旧文件直至完成替换，再启动新版。
+
+Mac 0.2.6 起使用同一服务器上的 `updates/appcast.xml`，由同一份双端发布元数据生成，采用 Sparkle 2.9.6 的原生下载、安装与重启界面。清单和安装包均需 Ed25519 签名，安装包继续使用 Developer ID 签名与 Apple 公证。后台只检查并在菜单提示，安装需用户确认。保留 Intel 10.15.7／Apple 芯片 11.0 构建目标；没有采用要求 macOS 12 的 Sparkle 2.10。
+
+这是全量包自更新，暂未启用差分下载。0.2.5 及以前版本需要按原有方式手动安装一次 0.2.6，之后的新版本即可在应用内完成更新。
 
 详细流程见 [发布说明](docs/RELEASING.md)。私钥、Apple 凭据、SSH 配置和生产环境文件都不属于仓库内容。
 
@@ -65,8 +69,8 @@ xcrun swiftc -swift-version 5 macos/UpdateClient.swift tests/main.swift -o /tmp/
 /tmp/pixel-volume-update-tests tests/fixtures
 ```
 
-测试使用每次新建的临时密钥，覆盖签名篡改、未知密钥、非 HTTPS、错误域名／路径／哈希、大小限制、通道、协议版本和版本比较。无 GUI 点击、音量修改或权限申请。
+测试使用每次新建的临时密钥，覆盖签名篡改、未知密钥、非 HTTPS、错误域名／路径／哈希、大小限制、通道、协议版本和版本比较。Windows 还测试下载完整性、缓存篡改、取消和重定向；`tests/test-installer.ps1 -NsisCompiler <path>` 用独立临时目录及无执行功能的文件测试安装替换和失败保留，不改真实安装或注册表。无 GUI 点击、音量修改或权限申请。
 
 ## 许可与署名
 
-项目宿主与更新代码使用 MIT 许可。像素界面基于 @Lattice_Node 的 [Slider Resident](https://ludion.ai/p/slider-resident)，保留其 MIT 署名。随包依赖许可位于 `licenses/`，Mac 界面许可也包含于 App 资源内。
+项目宿主与更新代码使用 MIT 许可。像素界面基于 @Lattice_Node 的 [Slider Resident](https://ludion.ai/p/slider-resident)，保留其 MIT 署名。随包依赖许可位于 `licenses/`，Mac 界面和 Sparkle 许可也包含于 App 资源内。

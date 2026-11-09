@@ -26,3 +26,4 @@ foreach (string path in Directory.GetFiles(root, "*.json"))
 foreach (var (a, b, expected) in new[] { ("0.2.4","0.2.4",0),("0.2.10","0.2.9",1),("1.0.0","0.99.99",1),("0.2.3","0.2.4",-1) })
     if (Math.Sign(UpdateClient.CompareVersions(a,b)) != expected) throw new Exception("Version comparison failed");
 Console.WriteLine($"Windows protocol: {cases} fixture checks and 4 version comparisons passed");
+await DownloadTests.Run();

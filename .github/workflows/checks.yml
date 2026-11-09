@@ -17,6 +17,9 @@ jobs:
       - run: python tests/generate_fixtures.py
       - run: dotnet run --project tests/UpdateTests.csproj -- tests/fixtures
       - run: dotnet build windows/PixelVolume.csproj -c Release
+      - run: choco install nsis --no-progress -y
+      - shell: pwsh
+        run: ./tests/test-installer.ps1 -NsisCompiler "C:/Program Files (x86)/NSIS/makensis.exe"
   macos:
     runs-on: macos-latest
     steps:

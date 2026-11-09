@@ -23,18 +23,21 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
     private var dismissAt = 0.0
     private var lastState: VolumeState?
     private var welcome: WelcomeWindow?
-    private let updates = UpdateClient()
+    private let appUpdater = AppUpdater()
     private let updateItem = NSMenuItem(title: "检查更新…", action: #selector(manualUpdateCheck), keyEquivalent: "")
-    private var updateTimer: Timer?
     private var checkingUpdate = false
     private var updateStatus = "当前版本 \(UpdateClient.currentVersion)"
 
-    private var launchedAtLogin: Bool {
+    private lazy var launchedAtLogin: Bool = {
+        if UserDefaults.standard.bool(forKey: "PixelUpdateRelaunchPending") {
+            UserDefaults.standard.removeObject(forKey: "PixelUpdateRelaunchPending")
+            return true
+        }
         if ProcessInfo.processInfo.arguments.contains("--login") { return true }
         let reason = NSAppleEventManager.shared().currentAppleEvent?
             .paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
         return reason == keyAELaunchedAsLogInItem || reason == keyAELaunchedAsServiceItem
-    }
+    }()
     private lazy var keys = VolumeKeys { [weak self] key, fine in
         guard let self, self.ready, let state = self.audio.apply(key, fine: fine) else { return false }
         DispatchQueue.main.async { self.show(state, for: 2.5) }
@@ -62,8 +65,14 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         menu.addItem(.separator())
         menu.addItem(withTitle: "退出像素音量", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
-        checkUpdates(manual: false)
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 60 * 60, repeats: true) { [weak self] _ in self?.checkUpdates(manual: false) }
+        appUpdater.onStatus = { [weak self] status, busy in
+            guard let self else { return }
+            self.updateStatus = status
+            self.checkingUpdate = busy
+            self.updateItem.title = status.hasPrefix("发现新版本") ? status : "检查更新…"
+            self.updateWelcome()
+        }
+        appUpdater.start()
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
@@ -152,43 +161,7 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
     @objc private func manualUpdateCheck() { checkUpdates(manual: true) }
 
     private func checkUpdates(manual: Bool) {
-        guard !checkingUpdate else { return }
-        checkingUpdate = true
-        updateStatus = "正在检查更新…"
-        updateItem.title = updateStatus
-        updateWelcome()
-        updates.check { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.checkingUpdate = false
-                switch result {
-                case .success(let release):
-                    self.updateStatus = release.isNewer ? "发现新版本 \(release.version)" : "当前已是最新版本 \(UpdateClient.currentVersion)"
-                    self.updateItem.title = release.isNewer ? "发现新版本 \(release.version)…" : "检查更新…"
-                    if manual {
-                        let alert = NSAlert()
-                        alert.messageText = self.updateStatus
-                        if release.isNewer {
-                            alert.informativeText = "\(release.notes)\n\n下载后打开 DMG，将应用拖入「应用程序」替换旧版。"
-                            alert.addButton(withTitle: "下载新版")
-                            alert.addButton(withTitle: "稍后")
-                            NSApp.activate(ignoringOtherApps: true)
-                            if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.download) }
-                        } else { alert.addButton(withTitle: "好"); alert.runModal() }
-                    }
-                case .failure:
-                    self.updateStatus = "暂时无法检查更新，请稍后重试。"
-                    self.updateItem.title = "检查更新…"
-                    if manual {
-                        let alert = NSAlert()
-                        alert.messageText = self.updateStatus
-                        alert.addButton(withTitle: "好")
-                        alert.runModal()
-                    }
-                }
-                self.updateWelcome()
-            }
-        }
+        if manual { appUpdater.check() }
     }
 
     private func readResource(_ name: String) -> String? {
@@ -338,7 +311,6 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
 
     func applicationWillTerminate(_ notification: Notification) {
         keys.stop()
-        updateTimer?.invalidate()
         permissionTimer?.invalidate()
         timer?.invalidate()
         web?.configuration.userContentController.removeScriptMessageHandler(forName: "pixelVolume")

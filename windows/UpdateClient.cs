@@ -15,7 +15,7 @@ internal sealed record UpdateRelease(string Version, string Notes, Uri Download,
 
 internal static class UpdateClient
 {
-    internal const string CurrentVersion = "0.2.5";
+    internal const string CurrentVersion = "0.2.6";
     internal const string Endpoint = "https://norgateai.com/pixel-volume/updates/stable.json";
     internal const string KeyId = "pixel-volume-p256-2026-01";
     internal const string PublicKey = "BCStAYN3T5jfuDxNsYIJL9U4RTE5XOG8tpJ1yevbDJL1BkJQi+wUqCoyN/t1yaCNshSqygcUjl7/WNBZvsU9pn8=";
@@ -60,13 +60,21 @@ internal static class UpdateClient
         var url = new Uri(platform.GetProperty("url").GetString()!, UriKind.Absolute);
         string hash = platform.GetProperty("sha256").GetString()!;
         long size = platform.GetProperty("size").GetInt64();
+        string notes = data.GetProperty("notes").GetString() ?? "";
+        if (notes.Length > 4000) throw new InvalidDataException("更新说明过长。");
+        var release = new UpdateRelease(version, notes, url, hash, size);
+        ValidateArtifact(release);
+        return release;
+    }
+
+    internal static void ValidateArtifact(UpdateRelease release)
+    {
+        var (version, _, url, hash, size) = release;
+        _ = CompareVersions(version, CurrentVersion);
         string expected = $"/pixel-volume/releases/{version}/{hash}/PixelVolume-{version}-Windows-x64-Setup.exe";
         if (!Regex.IsMatch(hash, "\\A[a-f0-9]{64}\\z") || size is <= 0 or > 1073741824 ||
             url.Scheme != "https" || url.Host != "norgateai.com" || !url.IsDefaultPort ||
             url.UserInfo != "" || url.Query != "" || url.Fragment != "" || url.AbsolutePath != expected)
             throw new InvalidDataException("更新下载地址无效。");
-        string notes = data.GetProperty("notes").GetString() ?? "";
-        if (notes.Length > 4000) throw new InvalidDataException("更新说明过长。");
-        return new UpdateRelease(version, notes, url, hash, size);
     }
 }

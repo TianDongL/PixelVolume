@@ -7,3 +7,4 @@
 *.nsi text eol=lf
 *.png binary
 licenses/** -whitespace
+*.nsh text eol=lf

@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 app="$PWD/out/Pixel Volume.app"
 helper="$app/Contents/Library/LoginItems/Pixel Volume Login.app"
 sdk="$(xcrun --sdk macosx --show-sdk-path)"
+sparkle="$(bash ../scripts/fetch-sparkle.sh)"
 target() {
     case "$1" in
         x86_64) echo x86_64-apple-macosx10.15.7 ;;
@@ -17,6 +18,9 @@ bundle() {
     mkdir -p "$dest/Contents/MacOS" "$dest/Contents/Resources"
     cp Info.plist "$dest/Contents/Info.plist"
     cp SliderResident.html DesktopBridge.html SliderResident-MIT.txt "$dest/Contents/Resources/"
+    mkdir -p "$dest/Contents/Frameworks"
+    ditto "$sparkle/Sparkle.framework" "$dest/Contents/Frameworks/Sparkle.framework"
+    cp "$sparkle/LICENSE" "$dest/Contents/Resources/Sparkle-LICENSE.txt"
 }
 
 compile() {
@@ -25,7 +29,8 @@ compile() {
     xcrun swiftc -swift-version 5 -O -sdk "$sdk" -target "$(target "$arch")" \
         -framework AppKit -framework WebKit -framework ApplicationServices -framework CoreAudio \
         -framework AudioToolbox -framework ServiceManagement \
-        "$@" AudioOutput.swift VolumeKeys.swift LoginStartup.swift UpdateClient.swift WelcomeWindow.swift main.swift -o "$target"
+        -F "$sparkle" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+        "$@" AudioOutput.swift VolumeKeys.swift LoginStartup.swift UpdateClient.swift AppUpdater.swift WelcomeWindow.swift main.swift -o "$target"
 }
 
 bundle "$app"
@@ -43,15 +48,30 @@ done
 xcrun lipo -create out/launcher-arm64 out/launcher-x86_64 -output "$helper/Contents/MacOS/PixelVolumeLogin"
 plutil -lint "$helper/Contents/Info.plist"
 
+sign_bundle() {
+    local dest="$1" signer="$2"
+    local framework="$dest/Contents/Frameworks/Sparkle.framework"
+    local options=(--timestamp=none)
+    [[ "$signer" == - ]] || options=(--options runtime --timestamp)
+    # Sign from the inside out, preserving the upstream XPC entitlements.
+    for item in "$framework/Versions/B/Autoupdate" \
+                "$framework/Versions/B/Updater.app" \
+                "$framework/Versions/B/XPCServices/Downloader.xpc" \
+                "$framework/Versions/B/XPCServices/Installer.xpc" \
+                "$framework"; do
+        codesign --force --preserve-metadata=entitlements "${options[@]}" --sign "$signer" "$item"
+    done
+    codesign --force "${options[@]}" --sign "$signer" "$dest"
+}
+
 if [[ "${PIXEL_SIGN:-adhoc}" == developer ]]; then
     identity="$(security find-identity -v -p codesigning | awk '/Developer ID Application:/{print $2}')"
     [[ "$identity" =~ ^[0-9A-F]{40}$ ]] || { echo '需要一张可用的 Developer ID Application 签名身份' >&2; exit 1; }
-    for item in "$helper" "$app"; do
-        codesign --force --options runtime --timestamp --sign "$identity" "$item"
-    done
+    codesign --force --options runtime --timestamp --sign "$identity" "$helper"
+    sign_bundle "$app" "$identity"
 else
     codesign --force --sign - "$helper"
-    codesign --force --sign - "$app"
+    sign_bundle "$app" -
 fi
 codesign --verify --deep --strict --all-architectures "$app"
 xcrun lipo -archs "$app/Contents/MacOS/PixelVolume"
@@ -66,7 +86,7 @@ qa() {
         /usr/libexec/PlistBuddy -c 'Add PixelTestLegacyCanvas bool true' "$test_app/Contents/Info.plist"
     fi
     compile "$arch" "$test_app/Contents/MacOS/PixelVolume" -D PIXEL_TEST
-    codesign --force --sign - "$test_app"
+    sign_bundle "$test_app" -
 }
 
 # Test app bundles are opt-in and must never be produced by a normal user build.

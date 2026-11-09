@@ -51,9 +51,11 @@ internal static class Program
         }
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        if (Array.Exists(args, arg => arg == "--update-failed"))
+            MessageBox.Show("此次更新未完成，已保留当前版本。请稍后重新检查更新。", "像素音量更新");
         var window = new VolumeWindow(Array.Exists(args, arg => arg == "--preview"),
             Array.Exists(args, arg => arg == "--diagnostics"),
-            !Array.Exists(args, arg => arg == "--login"));
+            !Array.Exists(args, arg => arg is "--login" or "--updated"));
         using var show = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\PixelVolume.ShowWelcome");
         using var quit = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\PixelVolume.Quit");
         var showWait = ThreadPool.RegisterWaitForSingleObject(show, (_, _) =>
@@ -90,6 +92,7 @@ internal sealed class VolumeWindow : Window
     private readonly bool diagnostics;
     private readonly bool showWelcome;
     private WelcomeWindow? welcome;
+    private UpdateWindow? updateWindow;
     private AudioEndpoint? audio;
     private VolumeKeys? keys;
     private VolumeState? lastPushed;
@@ -155,6 +158,7 @@ internal sealed class VolumeWindow : Window
             menu.Dispose();
             browser.Dispose();
             welcome?.Close();
+            updateWindow?.Close();
         };
     }
 
@@ -277,6 +281,11 @@ internal sealed class VolumeWindow : Window
 
     private async void CheckUpdates(bool manual)
     {
+        if (updateWindow != null)
+        {
+            if (manual) { updateWindow.Show(); updateWindow.Activate(); }
+            return;
+        }
         if (checkingUpdate) return;
         checkingUpdate = true;
         updateStatus = "正在检查更新…";
@@ -287,9 +296,10 @@ internal sealed class VolumeWindow : Window
             updateStatus = release.IsNewer ? $"发现新版本 {release.Version}" : $"当前已是最新版本 {UpdateClient.CurrentVersion}";
             if (release.IsNewer && manual)
             {
-                string prompt = $"当前版本：{UpdateClient.CurrentVersion}\n新版本：{release.Version}\n\n{release.Notes}\n\n是否通过浏览器下载新版安装包？下载后运行安装程序即可更新。";
-                if (MessageBox.Show(prompt, "像素音量更新", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(release.Download.AbsoluteUri) { UseShellExecute = true });
+                updateWindow = new UpdateWindow(release);
+                updateWindow.Closed += (_, _) => updateWindow = null;
+                updateWindow.Show();
+                updateWindow.Activate();
             }
             else if (release.IsNewer && notifiedVersion != release.Version)
             {
