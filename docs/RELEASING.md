@@ -73,7 +73,8 @@ Windows 先验证 P-256 清单，下载过程限制大小、超时，不跟随�
 
 ## OSS / CDN 分发（0.2.7 起）
 
-- 安装包同时保留源站不可变 URL，并上传到现有 OSS 桶的 `download/releases/pixel-volume/<version>/<sha256>/<filename>`，使用既有 `dl.norgateai.com` CDN 和缓存规则。只操作 Pixel Volume 前缀，不改变其他产品、桶 ACL、CDN 域名或购买资源。
+- 安装包同时保留兼容旧客户端的服务器不可变 URL，并上传到 Pixel Volume 专用私有 OSS 桶的 `download/releases/pixel-volume/<version>/<sha256>/<filename>`，继续使用 `dl.norgateai.com` 下载地址。上传前核对桶 ACL 为 private、阻止公共访问已开启。桶名与运维凭据保留在部署环境，不能写入公开仓库或客户端。
+- CDN 按路径选择专用 OSS 源站，使用仅能读取该桶 Pixel Volume 下载目录的 RAM 身份回源。其他产品的路径继续访问原源站；不得对共用下载域名开启可读取所有私有桶的全局授权。验收须确认 CDN 成功下载、OSS 匿名直连返回 403，并核对其他产品下载路径未受影响。
 - `prepare_release.py` 生成兼容旧版的 `url` 与新版使用的 `cdnUrl`。网页、新版 Windows/Mac 协议模块优先使用 `cdnUrl`；Sparkle appcast 的 enclosure 使用 CDN URL。
 - 上传前后核对大小和 SHA-256，禁止覆盖不可变对象。需要从公开 CDN 地址完整下载并核对哈希，确认 HTTPS、Range 响应和缓存后，再发布指针。源站链接保留，以免旧版清单校验或禁用重定向的下载器失败。
 - Windows 0.2.6 及以前并不认识 `cdnUrl`，升到 0.2.7 的这一跳仍会使用原链路；用户可从已走 CDN 的网页手动安装 0.2.7。之后应用内更新使用 CDN。不能用 302 跳转代替这次兼容升级。
