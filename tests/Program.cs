@@ -2,6 +2,14 @@ using System;
 using System.IO;
 using PixelVolume;
 
+if (args.Length == 1 && args[0] == "--live")
+{
+    var release = await UpdateClient.CheckAsync();
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { current = UpdateClient.CurrentVersion,
+        latest = release.Version, updateAvailable = release.IsNewer, signatureVerified = true,
+        url = release.Download.AbsoluteUri, sha256 = release.Sha256 }));
+    return;
+}
 string root = args[0];
 string key = File.ReadAllText(Path.Combine(root, "public.txt")).Trim();
 int cases = 0;
