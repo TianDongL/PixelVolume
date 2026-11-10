@@ -1,5 +1,9 @@
 # 双端发布
 
+## 双端源码同步
+
+Windows 和 Mac 各使用一个长期 Git 工作目录，跟踪 `origin/main`。一端提交并推送更新后，另一端在原目录运行 `git pull --ff-only`。发版前用 `git rev-parse HEAD` 核对两端构建使用同一个提交，并用发布标签记录该提交。各端的打包产物统一存放在工作目录的 `artifacts/` 下。
+
 ## 协议与信任
 
 `stable.json` 是 envelope：`keyId`、`payload`、`signature`。payload 是原始 UTF-8 JSON 字节的 Base64；signature 是 ECDSA P-256 / SHA-256 的 64 字节 IEEE P1363（r||s）签名的 Base64。必须先验签再解释 payload。公钥采用 65 字节 X9.63 未压缩格式。
