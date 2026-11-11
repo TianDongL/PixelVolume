@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#201d27">
-  <meta name="description" content="像素音量 Pixel Volume：让键盘音量键唤出一间像素小屋。下载 Windows 安装包或支持 Intel、Apple 芯片的 Mac 通用版。首次使用有引导，开机启动由你选择。">
+  <meta name="description" content="像素音量 Pixel Volume 让桌面场景随音量变化。在线体验雾溪村，下载 Windows 安装包或支持 Intel 和 Apple 芯片的 Mac 通用版。">
   <meta property="og:title" content="像素音量 · 给每次调音量，加一点生活感。">
-  <meta property="og:description" content="一个住着像素小人的音量浮窗。Windows 与 Mac 均可用，Intel Mac 也支持。">
+  <meta property="og:description" content="拖动音量滑块，在雾溪村的河谷间移动。Windows 与 Mac 均可用，Intel Mac 也支持。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://norgateai.com/pixel-volume/">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'">
   <link rel="canonical" href="https://norgateai.com/pixel-volume/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/demo.css">
+  <link rel="stylesheet" href="__DEMO_STYLE__">
   <link rel="stylesheet" href="assets/site.css">
-  <script type="module" src="assets/demo.js"></script>
+  <script type="module" src="__DEMO_SCRIPT__"></script>
   <script src="assets/site.js" defer></script>
   <title>像素音量 Pixel Volume — Windows / Mac 下载</title>
 </head>
@@ -34,7 +34,7 @@
         <div class="hero-copy">
           <div class="eyebrow"><span class="status-dot"></span> 一个小小的桌面改造 <span class="version-tag">v<span data-version>__VERSION__</span></span></div>
           <h1 id="hero-title">给每次调音量，<br>加一点<span class="accent-text">生活感。</span></h1>
-          <p class="hero-intro">按下音量键，一间像素小屋轻轻出现。<br>熟悉的操作，多一点让人喜欢的小细节。</p>
+          <p class="hero-intro">按下音量键，桌面上会浮出一处像素场景。<br>从小屋到雾溪村，景色跟着音量变换。</p>
           <div class="hero-actions">
             <a class="button button-lilac" href="#download">下载像素音量 <span aria-hidden="true">↓</span></a>
             <span class="hero-meta">免费 · 开源<br>Windows &amp; macOS</span>
@@ -42,11 +42,11 @@
           <p class="intel-note"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg> Intel Mac 也能用，同一个通用安装包。</p>
         </div>
         <figure class="preview">
-          <div class="preview-top"><span class="micro-label">A LITTLE ROOM. A LITTLE JOY.</span><span class="preview-light" aria-label="实时预览">LIVE</span></div>
+          <div class="preview-top"><span>雾溪村</span><span class="preview-light">互动预览</span></div>
           <span class="spark spark-one" aria-hidden="true">+</span><span class="spark spark-two" aria-hidden="true">✦</span>
           <div class="room-orbit" aria-hidden="true"></div>
-          <div class="preview-room">__DEMO_MARKUP__<output id="demo-level" aria-live="off">42%</output></div>
-          <figcaption><span class="drag-mark" aria-hidden="true">↔</span> 拖动滑块，看看小屋的变化<small>网页效果预览，不会改变系统音量</small></figcaption>
+          <div class="preview-room">__DEMO_MARKUP__<output id="demo-level" aria-live="off">40%</output></div>
+          <figcaption><span class="drag-mark" aria-hidden="true">↔</span> 拖动滑块，沿着雾溪村的河谷移动<small>网页效果预览，不会改变系统音量</small></figcaption>
         </figure>
       </section>
 
@@ -106,6 +106,6 @@
     <details><summary><span>文件完整性校验 <small>SHA-256</small></span><span aria-hidden="true">+</span></summary><div class="hash-grid"><div><strong>Windows 安装包</strong><code data-hash="windows-x64">__WINDOWS_HASH__</code></div><div><strong>Mac 通用安装包</strong><code data-hash="macos-universal">__MAC_HASH__</code></div></div></details>
   </section>
 
-  <footer class="footer container"><div class="footer-top"><a href="https://norgateai.com/" class="norgate-wordmark">NORGATE<span>↗</span></a><p>大桌面，也值得有一点小乐趣。</p><a href="https://github.com/TianDongL/PixelVolume" target="_blank" rel="noopener noreferrer">开源代码 ↗</a></div><div class="footer-bottom"><span>像素音量 · Pixel Volume © 2026</span><span>界面基于 <a href="https://ludion.ai/p/slider-resident" target="_blank" rel="noopener noreferrer">@Lattice_Node / Slider Resident</a> · <a href="assets/SliderResident-MIT.txt">MIT</a></span></div></footer>
+  <footer class="footer container"><div class="footer-top"><a href="https://norgateai.com/" class="norgate-wordmark">NORGATE<span>↗</span></a><p>大桌面，也值得有一点小乐趣。</p><a href="https://github.com/TianDongL/PixelVolume" target="_blank" rel="noopener noreferrer">开源代码 ↗</a></div><div class="footer-bottom"><span>像素音量 · Pixel Volume © 2026</span><span>界面基于 <a href="https://ludion.ai/p/slider-resident" target="_blank" rel="noopener noreferrer">@Lattice_Node / Slider Resident</a> · <a href="assets/SliderResident-MIT.txt">MIT</a> · <a href="assets/Three-MIT.txt">Three.js MIT</a></span></div></footer>
 </body>
 </html>
