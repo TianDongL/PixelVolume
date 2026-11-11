@@ -1,0 +1,14 @@
+{
+  "name": "pixel-volume-scenes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild Village.mjs --bundle --format=iife --global-name=VillageScene --target=safari13.1,chrome100 --minify --legal-comments=inline --outfile=Village.bundle.js"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

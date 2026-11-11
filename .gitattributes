@@ -7,4 +7,6 @@
 *.nsi text eol=lf
 *.png binary
 licenses/** -whitespace
+scenes/Village.bundle.js -whitespace linguist-generated=true
+scenes/VillagePosters.js linguist-generated=true
 *.nsh text eol=lf

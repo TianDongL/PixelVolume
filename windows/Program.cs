@@ -88,6 +88,8 @@ internal sealed class VolumeWindow : Window
     private string updateStatus = $"当前版本 {UpdateClient.CurrentVersion}";
     private string? notifiedVersion;
     private readonly Forms.NotifyIcon tray;
+    private readonly SceneLibrary scenes = new();
+    private string sceneId = SceneLibrary.Room.Id;
     private readonly bool preview;
     private readonly bool diagnostics;
     private readonly bool showWelcome;
@@ -122,11 +124,14 @@ internal sealed class VolumeWindow : Window
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("打开音量浮窗", null, (_, _) => OpenFromTray());
         menu.Items.Add("设置与使用说明…", null, (_, _) => OpenWelcome());
+        var sceneMenu = new Forms.ToolStripMenuItem("场景");
+        menu.Items.Add(sceneMenu);
         menu.Items.Add("检查更新…", null, (_, _) => CheckUpdates(true));
         var startup = new Forms.ToolStripMenuItem("登录时启动");
         menu.Items.Add(startup);
         menu.Opening += (_, _) =>
         {
+            PopulateSceneMenu(sceneMenu);
             startup.Checked = LoginStartup.Registered;
             startup.Text = startup.Checked && LoginStartup.DisabledByWindows
                 ? "登录时启动（已在 Windows 中停用）" : "登录时启动";
@@ -144,6 +149,7 @@ internal sealed class VolumeWindow : Window
         tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) OpenFromTray(); };
 
         Loaded += Initialize;
+        IsVisibleChanged += (_, _) => SendSceneVisibility();
         SourceInitialized += (_, _) => ((HwndSource)PresentationSource.FromVisual(this)).AddHook(WindowMessage);
         DpiChanged += (_, _) => Dispatcher.InvokeAsync(() => { if (ready && IsVisible) PositionWindow(); }, DispatcherPriority.Loaded);
         timer.Tick += OnTimer;
@@ -177,12 +183,15 @@ internal sealed class VolumeWindow : Window
             var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: profile);
             await browser.EnsureCoreWebView2Async(environment);
             var core = browser.CoreWebView2;
+            core.Settings.AreHostObjectsAllowed = false;
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsZoomControlEnabled = false;
             core.Settings.IsPinchZoomEnabled = false;
             core.NewWindowRequested += (_, args) => args.Handled = true;
+            core.PermissionRequested += (_, args) => args.State = CoreWebView2PermissionState.Deny;
+            core.FrameNavigationStarting += (_, args) => args.Cancel = args.Uri is not ("about:srcdoc" or "about:blank");
             bool pageStarted = false;
             core.NavigationStarting += (_, args) =>
             {
@@ -196,8 +205,12 @@ internal sealed class VolumeWindow : Window
             };
             core.ProcessFailed += (_, args) => Fail($"WebView2 已停止：{args.ProcessFailedKind}");
             core.WebMessageReceived += OnWebMessage;
-            core.NavigateToString("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><body>" +
-                ReadResource("SliderResident.html") + ReadResource("DesktopBridge.html") + "</body></html>");
+            core.NavigateToString("""
+                <!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; frame-src about:; base-uri 'none'; form-action 'none'">
+                </head><body>
+                """ + "<script>" + ReadResource("Village.bundle.js") + "</script><script>" + ReadResource("VillagePosters.js") + "</script>" +
+                ReadResource("SceneHost.html") + ReadResource("SliderResident.html") + ReadResource("DesktopBridge.html") + "</body></html>");
         }
         catch (Exception ex) { Fail(ex.Message); }
     }
@@ -219,6 +232,7 @@ internal sealed class VolumeWindow : Window
                 ready = true;
                 Hide();
                 Opacity = 1;
+                RestoreScene();
                 OpenFromTray(show: preview);
                 welcome?.Refresh(ready, keys != null);
                 Trace("ready");
@@ -246,6 +260,99 @@ internal sealed class VolumeWindow : Window
                 dragging = false;
                 KeepOpen(2500);
                 break;
+        }
+    }
+
+    private void PopulateSceneMenu(Forms.ToolStripMenuItem menu)
+    {
+        while (menu.DropDownItems.Count > 0)
+        {
+            var old = menu.DropDownItems[0];
+            menu.DropDownItems.RemoveAt(0);
+            old.Dispose();
+        }
+        Add(SceneLibrary.Room);
+        Add(SceneLibrary.Village);
+        try
+        {
+            foreach (var entry in scenes.Imported()) Add(entry);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace(ex.Message); }
+        menu.DropDownItems.Add(new Forms.ToolStripSeparator());
+        menu.DropDownItems.Add("导入 HTML 场景…", null, (_, _) => ImportScene());
+        if (sceneId != SceneLibrary.Room.Id && sceneId != SceneLibrary.Village.Id)
+        {
+            menu.DropDownItems.Add("移除当前导入场景", null, (_, _) => ChangeSceneFiles(() =>
+            {
+                string removed = sceneId;
+                ChooseScene(SceneLibrary.Room.Id);
+                scenes.Remove(removed);
+            }));
+        }
+
+        void Add(SceneEntry entry)
+        {
+            var item = new Forms.ToolStripMenuItem(entry.Title.Replace("&", "&&")) { Checked = entry.Id == sceneId };
+            item.Click += (_, _) => ChangeSceneFiles(() => ChooseScene(entry.Id));
+            menu.DropDownItems.Add(item);
+        }
+    }
+
+    private void ImportScene()
+    {
+        var picker = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "导入 HTML 场景（资源需内嵌在文件中）",
+            Filter = "HTML 场景 (*.html;*.htm)|*.html;*.htm",
+            CheckFileExists = true
+        };
+        if (picker.ShowDialog() == true) ChangeSceneFiles(() => ChooseScene(scenes.Import(picker.FileName).Id));
+    }
+
+    private void ChooseScene(string id)
+    {
+        var content = scenes.Load(id);
+        scenes.Remember(id);
+        sceneId = id;
+        SendScene(content);
+        OpenFromTray();
+    }
+
+    private void RestoreScene()
+    {
+        try
+        {
+            string id = scenes.SelectedId();
+            var content = scenes.Load(id);
+            sceneId = id;
+            SendScene(content);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            sceneId = SceneLibrary.Room.Id;
+            SendScene(new SceneContent(sceneId));
+            Trace(ex.Message);
+        }
+    }
+
+    private void SendScene(SceneContent scene)
+    {
+        if (!ready) return;
+        browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "scene", kind = scene.Kind, html = scene.Html }));
+    }
+
+    private void SendSceneVisibility()
+    {
+        if (!ready) return;
+        browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "visibility", shown = IsVisible }));
+    }
+
+    private void ChangeSceneFiles(Action action)
+    {
+        try { action(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            MessageBox.Show(ex.Message, "场景文件无法读取或保存", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

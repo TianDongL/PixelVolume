@@ -15,7 +15,7 @@ internal sealed record UpdateRelease(string Version, string Notes, Uri Download,
 
 internal static class UpdateClient
 {
-    internal const string CurrentVersion = "0.2.7";
+    internal const string CurrentVersion = "0.2.8";
     internal const string Endpoint = "https://norgateai.com/pixel-volume/updates/stable.json";
     internal const string KeyId = "pixel-volume-p256-2026-01";
     internal const string PublicKey = "BCStAYN3T5jfuDxNsYIJL9U4RTE5XOG8tpJ1yevbDJL1BkJQi+wUqCoyN/t1yaCNshSqygcUjl7/WNBZvsU9pn8=";

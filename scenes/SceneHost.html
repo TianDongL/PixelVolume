@@ -1,0 +1,164 @@
+<style>
+  .pixel-scene-skin, .pixel-scene-lens {
+    position: absolute;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .pixel-scene-skin {
+    overflow: hidden;
+    isolation: isolate;
+    background: #272634;
+    border: var(--scene-bezel) solid #d8d4e1;
+    box-shadow: inset 0 1px 3px #ffffffad, inset 0 -2px 5px #242037bf,
+                0 1px 2px #fff9, 0 4px 9px #18142580;
+  }
+  .pixel-scene-skin iframe, .pixel-scene-skin img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    object-fit: cover;
+  }
+  .pixel-scene-lens {
+    background: linear-gradient(155deg, #f7f5ff70 0%, #ffffff14 32%, #382a5b35 67%, #c7dcff56 100%);
+    border: 1px solid #e8e5ffbb;
+    box-shadow: inset 1px 2px 4px #f4f8ff94, inset -2px -3px 5px #40305e80,
+                1px 2px 7px #201a3c6b;
+    -webkit-backdrop-filter: saturate(1.15) brightness(1.06);
+    backdrop-filter: saturate(1.15) brightness(1.06);
+  }
+  [data-ld-part][data-scene-overlay] canvas.scene { visibility: hidden; }
+</style>
+<script>
+(() => {
+  let root;
+  let skin;
+  let lens;
+  let frame;
+  let poster;
+  let village;
+  let villageUnavailable = false;
+  let visible = false;
+  let selection = { kind: 'room' };
+  let state = { type: 'pixel-volume', level: 0, muted: false, available: true };
+
+  // The scene can receive volume state. All input and native messaging stay in the HUD.
+  function sendState() {
+    frame?.contentWindow?.postMessage(state, '*');
+  }
+
+  function syncOverlay() {
+    const mode = host.mode;
+    const overlay = mode === 'html' || mode === 'poster';
+    if (overlay) root.setAttribute('data-scene-overlay', '');
+    else root.removeAttribute('data-scene-overlay');
+    skin.hidden = lens.hidden = !overlay;
+    if (frame && (!visible || mode !== 'html')) {
+      frame.remove();
+      frame = null;
+    }
+    if (poster && mode !== 'poster') {
+      poster.remove();
+      poster = null;
+    }
+    if (mode === 'poster' && !poster) {
+      poster = document.createElement('img');
+      poster.alt = '';
+      skin.appendChild(poster);
+    }
+    if (mode === 'html' && visible && !frame) {
+      frame = document.createElement('iframe');
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.setAttribute('scrolling', 'no');
+      frame.tabIndex = -1;
+      frame.title = '音量场景';
+      frame.addEventListener('load', sendState);
+      frame.srcdoc = '<!doctype html><meta charset="utf-8">' +
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; font-src data:; frame-src \'none\'; base-uri \'none\'; form-action \'none\'">' +
+        '<style>html,body{width:100%;height:100%;margin:0;overflow:hidden}</style>' + selection.html;
+      skin.appendChild(frame);
+    }
+  }
+
+  function villageFallback() {
+    villageUnavailable = true;
+    if (selection.kind === 'village') {
+      syncOverlay();
+      Promise.resolve().then(() => root.dispatchEvent(new Event('pixel-scene-change')));
+    }
+  }
+
+  const host = window.pixelScenes = {
+    attach(element) {
+      root = element;
+      skin = document.createElement('div');
+      skin.className = 'pixel-scene-skin';
+      lens = document.createElement('span');
+      lens.className = 'pixel-scene-lens';
+      skin.setAttribute('aria-hidden', 'true');
+      lens.setAttribute('aria-hidden', 'true');
+      const input = root.querySelector('.range');
+      root.insertBefore(skin, input);
+      root.insertBefore(lens, input);
+      syncOverlay();
+      return host;
+    },
+    get mode() {
+      return selection.kind === 'village' && villageUnavailable ? 'poster' : selection.kind;
+    },
+    select(scene) {
+      if (!scene || !['room', 'village', 'html'].includes(scene.kind)) return;
+      if (scene.kind === 'html' && (typeof scene.html !== 'string' || !scene.html.trim())) return;
+      if (frame) { frame.remove(); frame = null; }
+      selection = scene;
+      syncOverlay();
+      root.dispatchEvent(new Event('pixel-scene-change'));
+    },
+    setVisible(shown) {
+      if (visible === shown) return;
+      visible = shown;
+      syncOverlay();
+      root.dispatchEvent(new Event('pixel-scene-visibility'));
+    },
+    get visible() { return visible; },
+    setVolume(data) {
+      const level = Math.max(0, Math.min(100, Math.round(Number(data.level) || 0)));
+      state = { type: 'pixel-volume', level, muted: data.muted === true, available: data.available !== false };
+      sendState();
+    },
+    layout(width, height, bezel, corner, left, top) {
+      Object.assign(skin.style, {
+        width: width + 'px', height: height + 'px', left: left + 'px', top: top + 'px',
+        borderRadius: corner + 'px',
+      });
+      skin.style.setProperty('--scene-bezel', bezel + 'px');
+    },
+    drawOverlay(shape, lensShape, level) {
+      const { cx, hx, hy } = lensShape;
+      const { W, H, dpr } = shape;
+      Object.assign(lens.style, {
+        width: 2 * hx / dpr + 'px', height: 2 * hy / dpr + 'px',
+        left: (W / 2 + cx - hx) / dpr + 'px', top: (H / 2 - hy) / dpr + 'px',
+        borderRadius: Math.min(hx, hy) / dpr + 'px',
+      });
+      if (poster) {
+        const key = level < .20 ? 0 : level < .70 ? 1 : 2;
+        const source = window.VillagePosters[key];
+        if (poster.getAttribute('src') !== source) poster.src = source;
+      }
+    },
+    renderVillage(width, height, apertureHeight, level, time) {
+      try {
+        if (!village) {
+          village = window.VillageScene.createVillageScene();
+          village.canvas.addEventListener('webglcontextlost', villageFallback, { once: true });
+        }
+        return village.render(width, height, apertureHeight, level, time);
+      } catch (error) {
+        villageFallback();
+        return null;
+      }
+    },
+  };
+})();
+</script>

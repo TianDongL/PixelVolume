@@ -16,12 +16,36 @@ Windows 运行 `Setup.exe`。Mac 打开 DMG，将 `Pixel Volume.app` 拖入「�
 
 Windows 当前发布物尚未做 Authenticode 签名，可能出现未知发布者或 SmartScreen 提示。Mac 发布物使用 Developer ID 签名及 Apple 公证。旧版 macOS 和真实 Intel 硬件的完整安装、登录重启仍需实机验收；Rosetta 验证不能替代真实 Intel 验收。
 
+## 场景
+
+在 Windows 托盘或 macOS 菜单栏打开「场景」，可以切换「像素房间」「雾溪村」，或选择「导入 HTML 场景…」。应用会保存导入副本和当前选择。选择「移除当前导入场景」会删除应用内的副本，并切回像素房间。
+
+导入文件使用 UTF-8，扩展名为 `.html` 或 `.htm`，上限为 8 MB。让内容适应约 3.5:1 的横向窗口，用内嵌的 CSS、脚本及 data URL 资源封装成一个文件。场景在隔离的离线框架内运行，外部 CDN 与本地相对路径资源需要先打包。系统音量操作由浮窗滑块处理。
+
+普通 HTML 可直接展示。需要响应音量时，可在场景内监听消息。初次显示和音量变化时，父窗口会发送 `level`（0–100）、`muted` 和 `available`。
+
+```html
+<style>
+  body { background: hsl(196 52% var(--light, 20%)); }
+</style>
+<script>
+  window.addEventListener('message', ({ source, data }) => {
+    if (source !== parent || data?.type !== 'pixel-volume') return;
+    const level = data.muted || !data.available ? 0 : data.level;
+    document.body.style.setProperty('--light', (20 + level * .4) + '%');
+  });
+</script>
+```
+
+「雾溪村」在 WebGL 2 可用时随音量实时运镜，满格时玻璃滑块保持稳定。旧 WebView 可显示三档备用画面。修改内置三维场景后，在 `scenes/` 执行 `npm ci && npm run build` 可重新生成随包脚本。
+
 ## 源码与构建
 
 | 路径 | 内容 |
 | --- | --- |
 | `windows/` | Windows 原生宿主与音量、键盘、启动项、更新逻辑 |
 | `macos/` | Mac 原生宿主、通用二进制构建脚本及登录助手 |
+| `scenes/` | 双端共用的 HTML 场景宿主和内置雾溪村 |
 | `installer/` | Windows NSIS 安装器与随包说明 |
 | `scripts/` | 构建、打包和生成签名更新清单 |
 | `tests/` | 不启动桌面界面的更新协议测试 |

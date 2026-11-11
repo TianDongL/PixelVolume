@@ -18,6 +18,8 @@ bundle() {
     mkdir -p "$dest/Contents/MacOS" "$dest/Contents/Resources"
     cp Info.plist "$dest/Contents/Info.plist"
     cp SliderResident.html DesktopBridge.html SliderResident-MIT.txt "$dest/Contents/Resources/"
+    cp ../scenes/SceneHost.html ../scenes/Village.bundle.js ../scenes/VillagePosters.js \
+       ../licenses/Three-MIT.txt "$dest/Contents/Resources/"
     mkdir -p "$dest/Contents/Frameworks"
     ditto "$sparkle/Sparkle.framework" "$dest/Contents/Frameworks/Sparkle.framework"
     cp "$sparkle/LICENSE" "$dest/Contents/Resources/Sparkle-LICENSE.txt"
@@ -30,7 +32,7 @@ compile() {
         -framework AppKit -framework WebKit -framework ApplicationServices -framework CoreAudio \
         -framework AudioToolbox -framework ServiceManagement \
         -F "$sparkle" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
-        "$@" AudioOutput.swift VolumeKeys.swift LoginStartup.swift UpdateClient.swift AppUpdater.swift WelcomeWindow.swift main.swift -o "$target"
+        "$@" AudioOutput.swift VolumeKeys.swift LoginStartup.swift SceneLibrary.swift UpdateClient.swift AppUpdater.swift WelcomeWindow.swift main.swift -o "$target"
 }
 
 bundle "$app"

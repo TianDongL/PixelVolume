@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>PixelVolume</AssemblyName>
     <AssemblyTitle>Pixel Volume</AssemblyTitle>
-    <Version>0.2.7</Version>
+    <Version>0.2.8</Version>
   </PropertyGroup>
   <ItemGroup>
     <KnownILLinkPack Update="Microsoft.NET.ILLink.Tasks" ILLinkPackVersion="10.0.13" />
@@ -16,5 +16,8 @@
     <KnownFrameworkReference Update="Microsoft.AspNetCore.App" LatestRuntimeFrameworkVersion="10.0.13" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3719.77" />
     <EmbeddedResource Include="SliderResident.html;DesktopBridge.html" />
+    <EmbeddedResource Include="../scenes/SceneHost.html" LogicalName="PixelVolume.SceneHost.html" />
+    <EmbeddedResource Include="../scenes/Village.bundle.js" LogicalName="PixelVolume.Village.bundle.js" />
+    <EmbeddedResource Include="../scenes/VillagePosters.js" LogicalName="PixelVolume.VillagePosters.js" />
   </ItemGroup>
 </Project>

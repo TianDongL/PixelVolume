@@ -27,20 +27,29 @@
   slider.setAttribute('aria-label', '系统音量');
   let syncing = false;
 
+  window.setPixelScene = scene => window.pixelScenes.select(scene);
+  window.setPixelSceneVisibility = shown => window.pixelScenes.setVisible(shown);
+
   window.setPixelVolume = data => {
     syncing = true;
     slider.disabled = data.available === false;
     slider.value = slider.disabled || data.muted ? 0 : data.level;
     slider.dispatchEvent(new Event('input'));
     status.textContent = slider.disabled ? '此输出由设备控制' : data.muted ? '已静音' : `${data.level}%`;
+    window.pixelScenes.setVolume(data);
     syncing = false;
   };
-  desktop?.addEventListener('message', ({ data }) => window.setPixelVolume(data));
+  desktop?.addEventListener('message', ({ data }) => {
+    if (data.type === 'scene') window.setPixelScene(data);
+    else if (data.type === 'visibility') window.setPixelSceneVisibility(data.shown);
+    else window.setPixelVolume(data);
+  });
 
   slider.addEventListener('input', () => {
     if (syncing) return;
     const level = slider.valueAsNumber;
     status.textContent = `${level}%`;
+    window.pixelScenes.setVolume({ level });
     send({ type: 'volume', level });
   });
 

@@ -14,6 +14,9 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
                                 styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
     private let loginItem = NSMenuItem(title: "登录时启动", action: #selector(toggleLogin), keyEquivalent: "")
     private let permissionItem = NSMenuItem(title: "启用键盘音量键…", action: #selector(requestPermission), keyEquivalent: "")
+    private let sceneMenu = NSMenu(title: "场景")
+    private let scenes = SceneLibrary()
+    private var sceneID = SceneLibrary.room.id
     private var statusItem: NSStatusItem!
     private var web: HudWebView!
     private var timer: Timer?
@@ -56,6 +59,9 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         menu.delegate = self
         menu.addItem(withTitle: "打开音量浮窗", action: #selector(openVolume), keyEquivalent: "").target = self
         menu.addItem(withTitle: "设置与使用说明…", action: #selector(openWelcome), keyEquivalent: "").target = self
+        let sceneItem = NSMenuItem(title: "场景", action: nil, keyEquivalent: "")
+        sceneItem.submenu = sceneMenu
+        menu.addItem(sceneItem)
         menu.addItem(updateItem)
         updateItem.target = self
         menu.addItem(permissionItem)
@@ -110,13 +116,15 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
 
-        guard let source = readResource("SliderResident"), let bridge = readResource("DesktopBridge") else { return }
+        guard let source = readResource("SliderResident"), let bridge = readResource("DesktopBridge"),
+              let host = readResource("SceneHost"), let village = readResource("Village.bundle", ext: "js"),
+              let posters = readResource("VillagePosters", ext: "js") else { return }
         let head = """
             <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>像素音量</title>
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; frame-src about:; base-uri 'none'; form-action 'none'">
             </head><body>
             """
-        web.loadHTMLString(head + source + bridge + "</body></html>", baseURL: nil)
+        web.loadHTMLString(head + "<script>" + village + "</script><script>" + posters + "</script>" + host + source + bridge + "</body></html>", baseURL: nil)
         if !launchedAtLogin {
             openWelcome()
             let promptedKey = "KeyboardPermissionOnboardingPrompted"
@@ -164,15 +172,17 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         if manual { appUpdater.check() }
     }
 
-    private func readResource(_ name: String) -> String? {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "html") else { return nil }
+    private func readResource(_ name: String, ext: String = "html") -> String? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: ext) else { return nil }
         return try? String(contentsOf: url, encoding: .utf8)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        decisionHandler(action.targetFrame?.isMainFrame == true && action.request.url?.absoluteString == "about:blank"
-                        && action.navigationType == .other ? .allow : .cancel)
+        guard let target = action.targetFrame, action.navigationType == .other,
+              let url = action.request.url?.absoluteString else { decisionHandler(.cancel); return }
+        let allowed = url == "about:blank" || (!target.isMainFrame && url == "about:srcdoc")
+        decisionHandler(allowed ? .allow : .cancel)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
@@ -189,6 +199,7 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         case "ready":
             guard !ready else { return }
             ready = true
+            restoreScene()
             _ = keys.start()
             updateWelcome()
             if ProcessInfo.processInfo.arguments.contains("--preview") { openVolume() }
@@ -233,6 +244,7 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         let wasHidden = !panel.isVisible
         panel.orderFrontRegardless()
         push(state, force: wasHidden)
+        if wasHidden { setSceneVisibility(true) }
         keepOpen(seconds)
         if timer == nil {
             let refresh = Timer(timeInterval: 0.18, repeats: true) { [weak self] _ in self?.refresh() }
@@ -246,6 +258,7 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
     private func refresh() {
         if ProcessInfo.processInfo.systemUptime >= dismissAt {
             panel.orderOut(nil)
+            setSceneVisibility(false)
             dragging = false
             timer?.invalidate()
             timer = nil
@@ -264,6 +277,7 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        populateSceneMenu()
         let active = ready && keys.start()
         permissionItem.title = active ? "键盘音量键已接管" : "启用键盘音量键…"
         permissionItem.state = active ? .on : .off
@@ -271,6 +285,86 @@ final class VolumeApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKScript
         loginItem.state = login == .off ? .off : .on
         loginItem.title = login == .needsApproval ? "登录时启动（等待系统确认）" : "登录时启动"
         updateWelcome()
+    }
+
+    private func populateSceneMenu() {
+        sceneMenu.removeAllItems()
+        let entries = [SceneLibrary.room, SceneLibrary.village] + ((try? scenes.imported()) ?? [])
+        for entry in entries {
+            let item = sceneMenu.addItem(withTitle: entry.title, action: #selector(pickScene(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = entry.id
+            item.state = entry.id == sceneID ? .on : .off
+        }
+        sceneMenu.addItem(.separator())
+        sceneMenu.addItem(withTitle: "导入 HTML 场景…", action: #selector(importScene), keyEquivalent: "").target = self
+        if sceneID != SceneLibrary.room.id && sceneID != SceneLibrary.village.id {
+            sceneMenu.addItem(withTitle: "移除当前导入场景", action: #selector(removeScene), keyEquivalent: "").target = self
+        }
+    }
+
+    @objc private func pickScene(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        changeSceneFiles { try chooseScene(id) }
+    }
+
+    @objc private func importScene() {
+        let picker = NSOpenPanel()
+        picker.title = "导入 HTML 场景"
+        picker.message = "请选取一个资源已经内嵌的 HTML 文件。"
+        picker.allowedFileTypes = ["html", "htm"]
+        NSApp.activate(ignoringOtherApps: true)
+        guard picker.runModal() == .OK, let url = picker.url else { return }
+        changeSceneFiles { try chooseScene(scenes.add(url).id) }
+    }
+
+    @objc private func removeScene() {
+        changeSceneFiles {
+            let removed = sceneID
+            try chooseScene(SceneLibrary.room.id)
+            try scenes.remove(removed)
+        }
+    }
+
+    private func chooseScene(_ id: String) throws {
+        let content = try scenes.load(id)
+        try scenes.remember(id)
+        sceneID = id
+        sendScene(content)
+        openVolume()
+    }
+
+    private func restoreScene() {
+        let id = scenes.selectedID()
+        if let content = try? scenes.load(id) {
+            sceneID = id
+            sendScene(content)
+        } else {
+            sceneID = SceneLibrary.room.id
+            sendScene(SceneContent(kind: sceneID))
+        }
+    }
+
+    private func sendScene(_ content: SceneContent) {
+        guard ready else { return }
+        var value: [String: String] = ["kind": content.kind]
+        if let html = content.html { value["html"] = html }
+        guard let data = try? JSONSerialization.data(withJSONObject: value) else { return }
+        let json = String(decoding: data, as: UTF8.self)
+        web.evaluateJavaScript("window.setPixelScene(\(json))", completionHandler: nil)
+    }
+
+    private func setSceneVisibility(_ visible: Bool) {
+        web.evaluateJavaScript("window.setPixelSceneVisibility(\(visible))", completionHandler: nil)
+    }
+
+    private func changeSceneFiles(_ action: () throws -> Void) {
+        do { try action() }
+        catch {
+            let alert = NSAlert(error: error)
+            alert.messageText = "场景文件无法读取或保存"
+            alert.runModal()
+        }
     }
 
     @objc private func requestPermission() {

@@ -781,6 +781,9 @@ void main() {
 }`;
 
 function mount(root) {
+  const sceneHost = window.pixelScenes?.attach(root);
+  let villageCanvas = null;
+  let villageTime = 0;
   const cleanups = [];
   const on = (target, type, fn, options) => {
     target.addEventListener(type, fn, options);
@@ -2593,7 +2596,8 @@ function mount(root) {
   const measure = () => {
     const box = root.getBoundingClientRect();
     const fullDpr = Math.min(2, devicePixelRatio || 1);
-    const nextFullK = pickK((Math.round(box.height * fullDpr) / 1.4) * (1 - 0.068 * 2));
+    const nextFullK = sceneHost?.mode === 'village' ? 1
+      : pickK((Math.round(box.height * fullDpr) / 1.4) * (1 - 0.068 * 2));
     if (nextFullK !== fullK) {
       fullK = nextFullK;
       renderScale = 1;
@@ -2645,6 +2649,8 @@ function mount(root) {
     shade.style.left = `${(box.width - shape.pillW / dpr) / 2}px`;
     shade.style.top = `${(box.height - pillCss) / 2}px`;
     shade.style.borderRadius = `${shape.corner / dpr}px`;
+    sceneHost?.layout(shape.pillW / dpr, pillCss, shape.bezel / dpr, shape.corner / dpr,
+                      (box.width - shape.pillW / dpr) / 2, (box.height - pillCss) / 2);
 
     if (!changed) return false;
     canvas.width = W;
@@ -2697,7 +2703,7 @@ function mount(root) {
       }
     }
 
-    buildBase();
+    if (!sceneHost || sceneHost.mode === 'room') buildBase();
 
     if (ready) {
       gl.viewport(0, 0, W, H);
@@ -2731,7 +2737,11 @@ function mount(root) {
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texWorld);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, pixelBytes);
+    if (villageCanvas) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, villageCanvas);
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, pixelBytes);
+    }
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, texGlow);
@@ -2775,10 +2785,10 @@ function mount(root) {
     gl.uniform2f(loc.uOrigin, shape.ox, shape.oy);
     gl.uniform2f(loc.uWorldSize, bw, bh);
     gl.uniform2f(loc.uGlowSize, GRID_W, GRID_H);
-    gl.uniform2f(loc.uShift, shiftX, shiftY);
+    gl.uniform2f(loc.uShift, villageCanvas ? 0 : shiftX, villageCanvas ? 0 : shiftY);
     gl.uniform1f(loc.uK, k);
     gl.uniform1f(loc.uLift, lift);
-    gl.uniform1f(loc.uWobble, calm ? 0 : wobble);
+    gl.uniform1f(loc.uWobble, calm || villageCanvas ? 0 : wobble);
     gl.uniform1f(loc.uTime, time % 1000);
     const lens = lensShape();
     gl.uniform4f(loc.uLens, lens.cx, 0, lens.hx, lens.hy);
@@ -2801,7 +2811,8 @@ function mount(root) {
     // WebGL が使えないとき：磨かれた面と窓を描き、レンズは部屋を拡大して見せる。色を塗り重ねて膜にしない
     const g = ctx2d;
     const low = lowCanvas.getContext('2d');
-    low.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), bw, bh), 0, 0);
+    if (villageCanvas) low.drawImage(villageCanvas, 0, 0, bw, bh);
+    else low.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), bw, bh), 0, 0);
     g.clearRect(0, 0, shape.W, shape.H);
     const px = (shape.W - shape.pillW) / 2;
     const py = (shape.H - shape.pillH) / 2;
@@ -2820,8 +2831,10 @@ function mount(root) {
       g.beginPath();
       g.roundRect(px + shape.bezel, py + shape.bezel, shape.winW, shape.winH, Math.max(shape.corner - shape.bezel, 1));
       g.clip();
-      g.imageSmoothingEnabled = false;
-      g.drawImage(lowCanvas, shape.ox + shiftX * k, shape.H - shape.oy + shiftY * k, bw * k, bh * k);
+      g.imageSmoothingEnabled = !!villageCanvas;
+      const sceneShiftX = villageCanvas ? 0 : shiftX * k;
+      const sceneShiftY = villageCanvas ? 0 : shiftY * k;
+      g.drawImage(lowCanvas, shape.ox + sceneShiftX, shape.H - shape.oy + sceneShiftY, bw * k, bh * k);
       g.restore();
     };
     paintPill();
@@ -2929,12 +2942,13 @@ function mount(root) {
 
   const tick = (ms) => {
     raf = 0;
-    if (lost) return;
+    if (lost || (sceneHost && !sceneHost.visible)) return;
     const t = ms / 1000;
     const dt = last ? Math.min(0.05, t - last) : 1 / 60;
     last = t;
 
-    if (!calm && ready) adapt(dt);
+    const sceneMode = sceneHost?.mode ?? 'room';
+    if (!calm && ready && sceneMode === 'room') adapt(dt);
 
     // ---- つまみ：なめらかに追いつく
     const target = value / 100;
@@ -2973,23 +2987,36 @@ function mount(root) {
 
     // ---- 世界は 30 コマで動く。1/30 秒にわずかに届かないだけで次の更新まで待つと、60Hz の画面で 20 コマに落ちる
     worldAcc += dt;
-    const worldStep = calm ? worldDirty : worldAcc >= 1 / WORLD_HZ - WORLD_SLACK;
+    const worldHz = sceneMode === 'village' ? 24 : WORLD_HZ;
+    const worldStep = worldDirty || (!calm && worldAcc >= 1 / worldHz - WORLD_SLACK);
     if (worldStep) {
-      stepWorld(Math.min(worldAcc, 0.1));
-      renderWorld();
+      villageCanvas = null;
+      const elapsed = Math.min(worldAcc, 0.1);
+      if (sceneMode === 'room') {
+        stepWorld(elapsed);
+        renderWorld();
+      } else if (sceneMode === 'village') {
+        if (!calm) villageTime += elapsed;
+        villageCanvas = sceneHost.renderVillage(bw, bh, shape.winH / k, x, calm ? 0 : villageTime);
+        glowRaw.fill(0);
+      }
       worldAcc = 0;
       worldDirty = false;
-      if (ready) uploadWorld();
+      if (ready && (sceneMode === 'room' || villageCanvas)) uploadWorld();
       dirty = true;
     }
 
     if (dirty) {
-      const weighing = costLeft > 0 && ready;
-      const startedAt = weighing ? performance.now() : 0;
-      if (ready) drawGl(t);
-      else if (ctx2d) draw2d();
+      if (sceneHost?.mode === 'html' || sceneHost?.mode === 'poster') {
+        sceneHost.drawOverlay(shape, lensShape(), x);
+      } else {
+        const weighing = sceneMode === 'room' && costLeft > 0 && ready;
+        const startedAt = weighing ? performance.now() : 0;
+        if (ready) drawGl(t);
+        else if (ctx2d) draw2d();
+        if (weighing) weighCost(startedAt);
+      }
       dirty = false;
-      if (weighing) weighCost(startedAt);
     }
 
     // 動きを減らす設定で止まっているときは、次の操作まで描かない
@@ -2997,7 +3024,7 @@ function mount(root) {
   };
 
   function wake() {
-    if (!raf && visible && pageVisible && !lost) {
+    if (!raf && visible && pageVisible && !lost && (!sceneHost || sceneHost.visible)) {
       last = 0;
       raf = requestAnimationFrame(tick);
     }
@@ -3084,6 +3111,16 @@ function mount(root) {
     worldDirty = true;
     wake();
   };
+  on(root, 'pixel-scene-change', redrawAll);
+  on(root, 'pixel-scene-visibility', () => {
+    if (!sceneHost.visible) {
+      stopDrawing();
+      return;
+    }
+    dirty = true;
+    worldDirty = true;
+    wake();
+  });
   function waitForRestore() {
     clearTimeout(restoreTimer);
     restoreTimer = setTimeout(() => {
